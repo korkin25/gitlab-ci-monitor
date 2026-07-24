@@ -344,6 +344,15 @@ function doReveal(view: TreeView<TreeItem>, project: string): void {
 	}
 }
 
+// Rebuild the repo nodes so their collapsibleState reflects the current
+// expandedRepos. VS Code applies collapsibleState on refresh, so this collapses
+// (or keeps expanded) repos in place across both panels — used for the accordion.
+function rebuildRepoNodes(): void {
+	repoNodes = Array.from(configByProject.values()).map((config) =>
+		createRepoNode(config, (pipelinesByRepo.get(config.project) || []).length)
+	);
+}
+
 export function revealRepoInView(view: TreeView<TreeItem>, project: string): void {
 	if (!expansionChanges(expandedRepos, project, true)) {
 		return; // already expanded — let a native click collapse it
@@ -351,14 +360,19 @@ export function revealRepoInView(view: TreeView<TreeItem>, project: string): voi
 	doReveal(view, project);
 }
 
-// Expand the repo at `fsPath` (e.g. a git root) in the given view — always scroll
-// to and expand it. Used when a repository is selected in the built-in Source
-// Control view, so the matching project opens in our "Pipelines" panel.
-export function revealRepoByPath(view: TreeView<TreeItem>, fsPath: string): void {
+// Expand the repo at `fsPath` (e.g. a git root) in the given view, and collapse
+// every other repo — an accordion, so only the current project stays open. Used
+// when a repository is selected in the built-in Source Control view.
+export function revealRepoByPath(provider: TreeViewProvider, view: TreeView<TreeItem>, fsPath: string): void {
 	const project = repoProjectForPath(repoNodes, fsPath);
-	if (project) {
-		doReveal(view, project);
+	if (!project) {
+		return;
 	}
+	expandedRepos.clear(); // accordion: keep only the selected repo expanded
+	expandedRepos.add(project);
+	rebuildRepoNodes(); // collapse the others in place…
+	provider.refresh();
+	doReveal(view, project); // …and scroll to + expand the current one
 }
 
 // Expand the active editor's repo in the Explorer panel (where files live), so

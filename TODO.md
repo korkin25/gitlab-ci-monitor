@@ -12,10 +12,12 @@
   (`repo.ui.selected` / `onDidChange`). `revealRepoByPath` in `tree-view.ts`;
   `wireBuiltInScmSelection` in `extension.ts`. (GCM-8/v0.3.3 fixed clicks inside our own
   panels + no sidebar jump.)
+- **Also:** `GCM-10` (`v0.3.5`) — built-in SCM selection is now an accordion: only the current
+  project stays expanded in "Pipelines" (others collapse via `expandedRepos` reset + refresh).
 - **Verify:** in VS Code confirm clicking a repo in the built-in Source Control list expands
-  the matching project in "Pipelines". Note: the Git extension's `ui.onDidChange` had a
-  historical bug (microsoft/vscode#72224) where it might not fire on selection change in some
-  versions — if it does nothing, report the VS Code version.
+  the matching project in "Pipelines" AND collapses the previously-open one. Note: the Git
+  extension's `ui.onDidChange` had a historical bug (microsoft/vscode#72224) — if nothing
+  happens at all, report the VS Code version.
 - **Release:** `v0.3.0` is the current release (adds `GCM-5`). The tag triggers
   `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
   Release; install via **Extensions: Install from VSIX…**. Marketplace/Open VSX publish

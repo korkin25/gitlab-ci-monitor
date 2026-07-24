@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.3.5] — 2026-07-24
+
+### Changed
+- **Selecting a repository in the built-in Source Control view now works as an accordion:** the chosen project expands in "Pipelines" and every other repo collapses, so only the current one stays open. (GCM-10)
+
 ## [0.3.4] — 2026-07-24
 
 ### Added

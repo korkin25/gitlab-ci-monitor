@@ -160,7 +160,7 @@ export async function activate(context: ExtensionContext) {
 	context.subscriptions.push(window.onDidChangeActiveTextEditor(() => expandActiveEditorRepo(explorerView)));
 
 	// selecting a repo in the built-in Source Control view expands it in "Pipelines"
-	wireBuiltInScmSelection(context, scmView);
+	wireBuiltInScmSelection(context, provider, scmView);
 
 	// --- secure token storage (VS Code SecretStorage) -----------------------
 	const tokenStore = new TokenStore(context.secrets);
@@ -272,7 +272,11 @@ export function deactivate() {
  * RepositoryUIState (`repo.ui.selected` + `repo.ui.onDidChange`). No-op if the
  * Git extension is unavailable or the API shape is not what we expect.
  */
-async function wireBuiltInScmSelection(context: ExtensionContext, scmView: TreeView<TreeItem>): Promise<void> {
+async function wireBuiltInScmSelection(
+	context: ExtensionContext,
+	provider: TreeViewProvider,
+	scmView: TreeView<TreeItem>
+): Promise<void> {
 	const gitExt = extensions.getExtension('vscode.git');
 	if (!gitExt) {
 		return;
@@ -291,7 +295,7 @@ async function wireBuiltInScmSelection(context: ExtensionContext, scmView: TreeV
 		context.subscriptions.push(
 			repo.ui.onDidChange(() => {
 				if (repo.ui.selected) {
-					revealRepoByPath(scmView, repo.rootUri.fsPath);
+					revealRepoByPath(provider, scmView, repo.rootUri.fsPath);
 				}
 			})
 		);
