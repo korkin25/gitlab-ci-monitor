@@ -2,12 +2,12 @@
 
 ## Current state / next action
 
-- **State:** Autonomous-development governance was just set up — `CLAUDE.md` (canonical
-  rules), this `TODO.md`, `CHANGELOG.md` conventions, `AGENTS.md`, and a GitHub Actions
-  CI workflow. No feature work has started under the new framework.
-- **Next action:** Agree the first feature / backlog priority with the user before
-  writing any code. Every feature starts test-first (see `CLAUDE.md` → Development
-  workflow).
+- **State:** `GCM-1` is **done** — test harness (`node:test`) is in place with 19 green
+  tests, and the pure logic has been extracted into VS Code-free modules
+  (`git-url`, `ansi`, `job-order`, `gitlab-api`). `npm test` runs the suite; the
+  extension still builds with `npm run compile`. Details in `CHANGELOG.md` → Unreleased.
+- **Next action:** Start `GCM-2` — add ESLint + Prettier, make the codebase lint-clean,
+  and wire both into `npm` scripts and CI. Continue test-first for any behavior change.
 
 ## Legend
 
@@ -41,7 +41,6 @@ confirm with the user before starting; each is delivered test-first.
 
 | ID | Status | Task |
 |----|--------|------|
-| GCM-1 | ⬜ | Set up a test harness (choose a runner — VS Code test / mocha / vitest) and write the first failing tests for the pipelines/HTTP layer. |
 | GCM-2 | ⬜ | Add ESLint + Prettier config and make the codebase lint-clean; wire both into `npm` scripts and CI. |
 | GCM-3 | ⬜ | Store the GitLab token in VS Code SecretStorage instead of plaintext `settings.json`; keep `GITLAB_TOKEN` env fallback. |
 | GCM-4 | ⬜ | Add a release/package CI job (tag-triggered) that builds the `.vsix` and, on explicit opt-in, publishes to the VS Code Marketplace / OpenVSX via `@vscode/vsce`. |

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Autonomous development governance: `CLAUDE.md` rules, `TODO.md`, `CHANGELOG.md` conventions, `AGENTS.md`, and GitHub Actions CI.
+- **Test suite** (`node:test`, zero extra runtime deps) covering the git-remote URL parser, the ANSI/section log cleaner, job ordering, and the GitLab HTTP layer (`buildRequestOptions` + `apiRequest` over a local server). Run with `npm test`. (GCM-1)
+
+### Changed
+- **Internal refactor (no behavior change):** pure logic extracted into VS Code-free modules so it is unit-testable — `src/git-url.ts`, `src/ansi.ts`, `src/job-order.ts`, and the whole GitLab REST client in `src/gitlab-api.ts`. `src/pipelines.ts` re-exports the HTTP layer, so existing imports are unaffected.
 
 ## [0.1.6] — 2026-07-24
 

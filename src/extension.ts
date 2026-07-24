@@ -3,19 +3,10 @@ import {
 	TreeViewProvider, updateAllPipelinesStatus, initStatusBar, revealCurrentRepo,
 	getConfigForPipeline, getConfigForProject, setRepoExpanded
 } from './tree-view';
-
-// Strip everything a terminal would interpret, so the trace reads cleanly in an editor.
-function stripAnsi(s: string): string {
-	return s
-		.replace(/\x1B\[[0-9;?]*[ -/]*[@-~]/g, '')          // CSI: colours, erase-line, cursor moves
-		.replace(/\x1B\][\s\S]*?(?:\x07|\x1B\\)/g, '')      // OSC sequences
-		.replace(/\x1B[@-Z\\-_]/g, '')                       // other lone escapes
-		.replace(/section_(?:start|end):\d+:[^\r\n]*/g, '')  // GitLab collapsible-section markers
-		.replace(/\r\n?/g, '\n');                            // normalise line endings
-}
+import { stripAnsi } from './ansi';
+import { getAllConfigs, getJobTrace, retryPipeline, cancelPipeline } from './pipelines';
 
 const LOG_SCHEME = 'gitlab-ci-log';
-import { getAllConfigs, getJobTrace, retryPipeline, cancelPipeline } from './pipelines';
 
 export function activate(context: ExtensionContext) {
 	const provider = new TreeViewProvider();

@@ -56,6 +56,18 @@ The domain and project are derived from each repo's git remote, so one entry per
 
 > The configuration key is intentionally `GitLabPipelines` for drop-in compatibility with the original extension.
 
+## Development
+
+```bash
+npm install        # dev dependencies only — the extension has zero runtime deps
+npm run compile    # type-check and build the extension into out/
+npm test           # run the unit suite (node:test) — see test/
+```
+
+The pure, VS Code-independent logic (git-remote parsing, log cleaning, job ordering, the
+GitLab HTTP client) lives in dedicated modules and is covered by `npm test`; the runner is
+Node's built-in `node:test`, so there are no extra test dependencies.
+
 ## Credits
 
 Derived from [`gitlab-pipelines`](https://github.com/Jameswain/gitlab-pipelines) by jameswain, licensed under ISC.

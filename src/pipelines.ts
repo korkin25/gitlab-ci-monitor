@@ -2,25 +2,20 @@ import { workspace } from 'vscode';
 import { execFileSync } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import * as https from 'https';
+import { gitUrlParser } from './git-url';
+import { RepoConfig } from './gitlab-api';
+
+// The GitLab HTTP layer lives in a vscode-free module so it can be unit-tested;
+// re-export it here so existing importers of `./pipelines` keep working.
+export {
+	buildRequestOptions, apiRequest,
+	getRunningPipelines, getPipelineJobs, getJobTrace, retryPipeline, cancelPipeline
+} from './gitlab-api';
+export type { RepoConfig } from './gitlab-api';
 
 // ---------------------------------------------------------------------------
 // git helpers
 // ---------------------------------------------------------------------------
-
-function gitUrlParser(url: string): { domain: string; project: string } {
-	// normalise scp-like `git@host:group/repo.git` into a URL we can parse
-	const giturl = /:\/\//.test(url) ? url : `ssh://${url.replace(/:~?/g, '/')}`;
-	try {
-		const u = new URL(giturl);
-		return {
-			domain: u.hostname,
-			project: u.pathname.replace(/\.git$/, '').replace(/^\/+/, '').trim()
-		};
-	} catch (e) {
-		return { domain: '', project: '' };
-	}
-}
 
 const gitClient = (ws?: any) => {
 	const fsPath = (ws && ws.uri && ws.uri.fsPath) || '';
@@ -54,17 +49,6 @@ const getRepoInfo = (ws?: any) => {
 // ---------------------------------------------------------------------------
 // configuration
 // ---------------------------------------------------------------------------
-
-export interface RepoConfig {
-	domain: string;
-	project: string;
-	currentBranch: string;
-	fsPath?: string;
-	apiUrl: string;
-	token: string | null;
-	interval: number;
-	notifyOnFailed: boolean;
-}
 
 export const getExtensionSettings = (domain: string): any => {
 	const defaults = {
@@ -111,62 +95,3 @@ export const getAllConfigs = (): RepoConfig[] => {
 	}
 	return confs;
 };
-
-// ---------------------------------------------------------------------------
-// GitLab REST API (built-in https, no runtime dependencies)
-// ---------------------------------------------------------------------------
-
-function apiRequest(conf: RepoConfig, endpoint: string, method: 'GET' | 'POST' = 'GET', asText = false): Promise<any> {
-	return new Promise((resolve, reject) => {
-		if (!conf.token) { return reject(new Error(`No token for '${conf.domain}'`)); }
-		let u: URL;
-		try {
-			u = new URL(`${conf.apiUrl}/projects/${encodeURIComponent(conf.project)}${endpoint}`);
-		} catch (e) {
-			return reject(e);
-		}
-		const options: https.RequestOptions = {
-			hostname: u.hostname,
-			port: u.port || 443,
-			path: u.pathname + u.search,
-			method,
-			headers: { 'PRIVATE-TOKEN': conf.token },
-			timeout: 8000
-		};
-		const req = https.request(options, (res) => {
-			let data = '';
-			res.on('data', (chunk) => { data += chunk; });
-			res.on('end', () => {
-				const code = res.statusCode || 0;
-				if (code < 200 || code >= 300) {
-					return reject(new Error(`GitLab API ${code} for ${endpoint}`));
-				}
-				if (asText) { return resolve(data); }
-				try { resolve(data ? JSON.parse(data) : []); } catch (e) { resolve([]); }
-			});
-		});
-		req.on('error', reject);
-		req.on('timeout', () => { req.destroy(new Error('request timeout')); });
-		req.end();
-	});
-}
-
-export function getRunningPipelines(conf: RepoConfig): Promise<any[]> {
-	return apiRequest(conf, '/pipelines').then((d) => (Array.isArray(d) ? d : []));
-}
-
-export function getPipelineJobs(conf: RepoConfig, pipelineId: number): Promise<any[]> {
-	return apiRequest(conf, `/pipelines/${pipelineId}/jobs?per_page=100&page=1`).then((d) => (Array.isArray(d) ? d : []));
-}
-
-export function getJobTrace(conf: RepoConfig, jobId: number): Promise<string> {
-	return apiRequest(conf, `/jobs/${jobId}/trace`, 'GET', true) as Promise<string>;
-}
-
-export function retryPipeline(conf: RepoConfig, pipelineId: number): Promise<any> {
-	return apiRequest(conf, `/pipelines/${pipelineId}/retry`, 'POST');
-}
-
-export function cancelPipeline(conf: RepoConfig, pipelineId: number): Promise<any> {
-	return apiRequest(conf, `/pipelines/${pipelineId}/cancel`, 'POST');
-}
