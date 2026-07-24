@@ -21,7 +21,7 @@ Monitor your GitLab pipelines in real time, right inside VS Code — across **ev
   ```
 - **Two homes.** The tree shows up under **Source Control** *and* the **Explorer** — pick whichever panel you live in. Opening a file in a project, or selecting a repository in the built-in **Source Control** list, expands that project in the panel — **in place, without switching sidebars or stealing focus**.
 - **Status bar indicator.** The pipeline status of the active editor's repo/branch is shown in the status bar; click it to open the pipeline in GitLab. It follows you as you switch files.
-- **Failure notifications.** A desktop notification pops up when a watched pipeline transitions to `failed` (toggle with `notifyOnFailed`).
+- **Smart failure notifications.** A desktop notification pops up only when the **latest** pipeline for a branch has `failed` — and only **once per branch failure**. If a newer run on that branch succeeds, no notification. Toggle with `notifyOnFailed`.
 - **Actions.** Retry or cancel a pipeline from inline buttons; click a pipeline or a job to open it in GitLab; view a job's log via its context menu.
 - **Repo groups collapse by default**, and the active editor's repo auto-expands.
 - **Zero runtime dependencies** — the GitLab API is called via Node's built-in `https`.

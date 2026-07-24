@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.4.0] — 2026-07-24
+
+### Changed
+- **Smarter failure notifications.** A pipeline failure now notifies only when it is the **latest** pipeline for its branch (a newer successful/running run on the same branch suppresses it), and only **once per `project + branch` failure** instead of once per pipeline id. Pre-existing failures at startup are recorded silently and never pop up. (GCM-11)
+
 ## [0.3.5] — 2026-07-24
 
 ### Changed

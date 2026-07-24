@@ -16,6 +16,7 @@ import {
 import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs } from './pipelines';
 import { orderJobs } from './job-order';
 import { repoProjectForPath, expansionChanges } from './expansion';
+import { latestFailedByRef } from './notify';
 
 // ---------------------------------------------------------------------------
 // module state
@@ -26,6 +27,9 @@ let pipelinesByRepo: Map<string, any[]> = new Map();
 const configByProject: Map<string, RepoConfig> = new Map();
 const pipelineConfigById: Map<number, RepoConfig> = new Map();
 const lastStatusById: Map<number, string> = new Map();
+// last failed pipeline id we notified about, per `project|ref` — so we notify
+// once per branch failure, and only when that failure is the branch's latest.
+const notifiedFailureByRef: Map<string, number> = new Map();
 // jobs cache: the UI reads from here; the network is only touched when an entry is
 // missing or its TTL has expired. Finished pipelines keep their jobs for a long time
 // (they never change); running pipelines use a short TTL so progress still shows.
@@ -247,28 +251,39 @@ function updateStatusBar(): void {
 // failure notifications
 // ---------------------------------------------------------------------------
 
-function checkFailure(pipeline: any, config: RepoConfig): void {
+// Invalidate a pipeline's cached job list when its status changes.
+function trackStatus(pipeline: any): void {
 	const id = pipeline.id;
 	const prev = lastStatusById.get(id);
 	lastStatusById.set(id, pipeline.status);
 	if (prev && prev !== pipeline.status) {
-		jobsCache.delete(id);
-	} // status changed → job list is stale
-	if (!baselineDone) {
-		return;
-	} // don't notify for the initial snapshot
-	if (config.notifyOnFailed === false) {
-		return;
+		jobsCache.delete(id); // status changed → job list is stale
 	}
-	if (pipeline.status === 'failed' && prev !== 'failed') {
+}
+
+/**
+ * Notify about failed pipelines, but only when a failure is the LATEST pipeline
+ * for its branch (a newer success/running run suppresses it), and only once per
+ * `project|ref` failure. When `notify` is false (the initial snapshot) we just
+ * record the current failures so pre-existing ones never pop up on startup.
+ */
+function notifyFailures(config: RepoConfig, pipelines: any[], notify: boolean): void {
+	for (const { ref, id } of latestFailedByRef(pipelines)) {
+		const key = `${config.project}|${ref}`;
+		if (notifiedFailureByRef.get(key) === id) {
+			continue; // already notified for this exact failure
+		}
+		notifiedFailureByRef.set(key, id);
+		if (!notify || config.notifyOnFailed === false) {
+			continue;
+		}
 		const short = (config.project || '').split('/').slice(-1)[0];
-		window
-			.showErrorMessage(`❌ Pipeline #${pipeline.id} failed — ${short} (${pipeline.ref})`, 'Open in GitLab')
-			.then((choice) => {
-				if (choice && pipeline.web_url) {
-					commands.executeCommand('vscode.open', Uri.parse(pipeline.web_url));
-				}
-			});
+		const pipeline = pipelines.find((p) => p.id === id);
+		window.showErrorMessage(`❌ Pipeline #${id} failed — ${short} (${ref})`, 'Open in GitLab').then((choice) => {
+			if (choice && pipeline && pipeline.web_url) {
+				commands.executeCommand('vscode.open', Uri.parse(pipeline.web_url));
+			}
+		});
 	}
 }
 
@@ -295,9 +310,10 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 		const items = pipelines.map((p: any) => {
 			currentIds.add(p.id);
 			pipelineConfigById.set(p.id, config);
-			checkFailure(p, config);
+			trackStatus(p);
 			return createPipelineNode(p, config);
 		});
+		notifyFailures(config, pipelines, baselineDone);
 		newByRepo.set(config.project, items);
 		newRepoNodes.push(createRepoNode(config, items.length));
 	}
@@ -313,6 +329,12 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 	for (const id of lastStatusById.keys()) {
 		if (!currentIds.has(id)) {
 			lastStatusById.delete(id);
+		}
+	}
+	// forget notified failures whose pipeline is no longer in the list
+	for (const [key, id] of notifiedFailureByRef) {
+		if (!currentIds.has(id)) {
+			notifiedFailureByRef.delete(key);
 		}
 	}
 	updateStatusBar();
