@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.4.2] — 2026-07-24
+
+### Fixed
+- **No more notification spam after a failed fetch.** When a poll to GitLab failed (network blip, timeout, 5xx), the repo's pipeline list briefly went empty and the internal "already notified" state got wiped — so on the next successful poll every existing failure was re-announced, and the toasts piled up. A failed fetch now keeps the repo's previous pipelines and notification state untouched (no re-notify, no tree flicker); only a successful fetch updates and prunes state. (GCM-13)
+
 ## [0.4.1] — 2026-07-24
 
 ### Fixed

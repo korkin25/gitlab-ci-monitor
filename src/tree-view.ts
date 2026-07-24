@@ -307,11 +307,29 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 	const sigParts: string[] = [];
 	for (const config of configs) {
 		configByProject.set(config.project, config);
-		let pipelines: any[];
+		let pipelines: any[] | null;
 		try {
 			pipelines = await getRunningPipelines(config);
 		} catch (e) {
-			pipelines = [];
+			pipelines = null; // request failed — do NOT treat it as "no pipelines"
+		}
+		if (pipelines === null) {
+			// A failed/incomplete fetch must not wipe this repo's view or notification
+			// state (otherwise every recovery re-notifies old failures). Keep the
+			// previous items and their ids, skip notifications, and leave the tree as-is.
+			const prevItems = pipelinesByRepo.get(config.project) || [];
+			for (const it of prevItems) {
+				currentIds.add(it.pipelineId);
+				pipelineConfigById.set(it.pipelineId, config);
+			}
+			newByRepo.set(config.project, prevItems);
+			newRepoNodes.push(createRepoNode(config, prevItems.length));
+			sigParts.push(
+				`${config.project}@${config.currentBranch}#${pipelinesSignature(
+					prevItems.map((it: any) => ({ id: it.pipelineId, status: it.pipelineStatus, ref: it.ref }))
+				)}`
+			);
+			continue;
 		}
 		const items = pipelines.map((p: any) => {
 			currentIds.add(p.id);

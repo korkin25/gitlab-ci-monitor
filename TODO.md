@@ -20,8 +20,11 @@
   (`pipelinesSignature` in `src/signature.ts` + `lastSignature` gate), so it stops
   re-rendering/re-fetching expanded jobs every poll. Trade-off: running pipelines update on
   status change, not every second (offer live per-job mode via node memoization if asked).
-- **Verify (UI, pending):** accordion in built-in Source Control; smart failure notifications;
-  and that expanding jobs is now smooth/cached (not jerky).
+- **Also:** `GCM-13` (`v0.4.2`) — a failed GitLab poll no longer wipes the repo's pipeline
+  list or the notification dedup, so transient fetch errors stop causing notification spam
+  (previous items/ids are kept; only successful fetches update/prune state).
+- **Verify (UI, pending):** accordion in built-in Source Control; smart failure notifications
+  (once, latest-per-branch, no spam on flaky network); smooth/cached job expansion.
 - **Release:** `v0.3.0` is the current release (adds `GCM-5`). The tag triggers
   `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
   Release; install via **Extensions: Install from VSIX…**. Marketplace/Open VSX publish
