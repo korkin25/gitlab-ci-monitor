@@ -1,0 +1,125 @@
+{
+	"name": "gitlab-ci-monitor",
+	"displayName": "GitLab CI Monitor",
+	"description": "Monitor GitLab pipelines across every repo in your workspace — in Explorer and Source Control.",
+	"version": "0.1.6",
+	"publisher": "korkin25",
+	"license": "ISC",
+	"icon": "icon.png",
+	"engines": {
+		"vscode": "^1.61.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"keywords": [
+		"gitlab",
+		"pipeline",
+		"ci",
+		"monitor",
+		"multi-root"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/korkin25/gitlab-ci-monitor.git"
+	},
+	"activationEvents": [
+		"workspaceContains:**/.gitlab-ci.yml",
+		"onView:gitlabCiMonitor.explorer",
+		"onView:gitlabCiMonitor.scm"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"configuration": {
+			"type": "object",
+			"title": "GitLab CI Monitor",
+			"properties": {
+				"GitLabPipelines": {
+					"type": "object",
+					"markdownDescription": "Per-domain configuration, keyed by your git remote host. Example:\n\n```json\n\"GitLabPipelines\": {\n  \"gitlab.com\": {\n    \"token\": \"<personal-access-token>\",\n    \"interval\": 5000,\n    \"notifyOnFailed\": true\n  }\n}\n```"
+				}
+			}
+		},
+		"commands": [
+			{
+				"command": "gitlabCiMonitor.refresh",
+				"title": "Refresh",
+				"category": "GitLab CI",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "pipeline.retry",
+				"title": "Retry pipeline",
+				"category": "GitLab CI",
+				"icon": "$(debug-restart)"
+			},
+			{
+				"command": "pipeline.cancel",
+				"title": "Cancel pipeline",
+				"category": "GitLab CI",
+				"icon": "$(stop-circle)"
+			},
+			{
+				"command": "pipeline.job.log",
+				"title": "View job log",
+				"category": "GitLab CI"
+			},
+			{
+				"command": "pipeline.click",
+				"title": "Open in GitLab",
+				"category": "GitLab CI"
+			}
+		],
+		"views": {
+			"explorer": [
+				{
+					"id": "gitlabCiMonitor.explorer",
+					"name": "GitLab CI"
+				}
+			],
+			"scm": [
+				{
+					"id": "gitlabCiMonitor.scm",
+					"name": "Pipelines"
+				}
+			]
+		},
+		"menus": {
+			"view/title": [
+				{
+					"command": "gitlabCiMonitor.refresh",
+					"when": "view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "pipeline.retry",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemRetryable",
+					"group": "inline"
+				},
+				{
+					"command": "pipeline.cancel",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemRunning",
+					"group": "inline"
+				},
+				{
+					"command": "pipeline.job.log",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == jobItem",
+					"group": "navigation"
+				}
+			]
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"package": "npx --yes @vscode/vsce package --no-dependencies"
+	},
+	"devDependencies": {
+		"@types/node": "^16.18.126",
+		"@types/vscode": "^1.61.0",
+		"typescript": "^4.9.5"
+	}
+}
