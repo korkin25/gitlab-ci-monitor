@@ -9,11 +9,19 @@ import {
 	setRepoExpanded
 } from './tree-view';
 import { stripAnsi } from './ansi';
-import { getAllConfigs, getJobTrace, retryPipeline, cancelPipeline } from './pipelines';
+import {
+	getAllConfigs,
+	getJobTrace,
+	retryPipeline,
+	cancelPipeline,
+	getWorkspaceDomains,
+	setTokenStore
+} from './pipelines';
+import { TokenStore } from './token-store';
 
 const LOG_SCHEME = 'gitlab-ci-log';
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
 	const provider = new TreeViewProvider();
 
 	// The same provider feeds two views: one in Explorer, one in Source Control.
@@ -126,6 +134,88 @@ export function activate(context: ExtensionContext) {
 
 	// follow the active editor: expand its repo group and refresh the status bar
 	context.subscriptions.push(window.onDidChangeActiveTextEditor(() => revealCurrentRepo(views)));
+
+	// --- secure token storage (VS Code SecretStorage) -----------------------
+	const tokenStore = new TokenStore(context.secrets);
+	setTokenStore(tokenStore);
+	context.subscriptions.push({ dispose: () => setTokenStore(null) });
+
+	const reloadSecrets = () => tokenStore.load(getWorkspaceDomains());
+
+	// One-time migration: copy any plaintext token from settings.json into
+	// SecretStorage so it stops living in plaintext. The setting is left in
+	// place (never edited on the user's behalf); they are told they can remove it.
+	const migrateSettingsTokens = async () => {
+		for (const domain of getWorkspaceDomains()) {
+			if (tokenStore.cached(domain)) {
+				continue;
+			}
+			const perDomain = workspace.getConfiguration('GitLabPipelines').get(domain) as any;
+			const settingToken = perDomain && perDomain.token;
+			if (settingToken) {
+				await tokenStore.set(domain, settingToken);
+				window.showInformationMessage(
+					`GitLab CI Monitor moved the token for ${domain} into VS Code Secret Storage. ` +
+						`You can now remove "GitLabPipelines.${domain}.token" from settings.json.`
+				);
+			}
+		}
+	};
+
+	// React to secrets changed here or in another window.
+	context.subscriptions.push(
+		context.secrets.onDidChange(async () => {
+			await reloadSecrets();
+			updateAllPipelinesStatus(provider);
+		})
+	);
+
+	const pickDomain = async (placeHolder: string): Promise<string | undefined> => {
+		const domains = getWorkspaceDomains();
+		if (domains.length === 1) {
+			return domains[0];
+		}
+		if (domains.length > 1) {
+			return window.showQuickPick(domains, { placeHolder });
+		}
+		return window.showInputBox({ prompt: 'GitLab host (e.g. gitlab.com)', ignoreFocusOut: true });
+	};
+
+	context.subscriptions.push(
+		commands.registerCommand('gitlabCiMonitor.setToken', async () => {
+			const domain = await pickDomain('Select the GitLab host to set a token for');
+			if (!domain) {
+				return;
+			}
+			const token = await window.showInputBox({
+				prompt: `GitLab personal access token for ${domain}`,
+				password: true,
+				ignoreFocusOut: true
+			});
+			if (!token) {
+				return;
+			}
+			await tokenStore.set(domain, token.trim());
+			window.setStatusBarMessage(`GitLab token saved for ${domain}`, 3000);
+			updateAllPipelinesStatus(provider);
+		})
+	);
+
+	context.subscriptions.push(
+		commands.registerCommand('gitlabCiMonitor.clearToken', async () => {
+			const domain = await pickDomain('Select the GitLab host to clear the token for');
+			if (!domain) {
+				return;
+			}
+			await tokenStore.clear(domain);
+			window.setStatusBarMessage(`GitLab token cleared for ${domain}`, 3000);
+			updateAllPipelinesStatus(provider);
+		})
+	);
+
+	// Warm the cache (and migrate legacy settings tokens) before the first refresh.
+	await reloadSecrets();
+	await migrateSettingsTokens();
 
 	const configs = getAllConfigs();
 	const interval = (configs[0] && configs[0].interval) || 5000;

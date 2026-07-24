@@ -32,12 +32,11 @@ The extension activates when a workspace folder contains a `.gitlab-ci.yml` file
 
 ## Configuration
 
-Add the following to your `settings.json`. The key is your git remote host (for gitlab.com it is `gitlab.com`):
+Non-secret options live in `settings.json`, keyed by your git remote host (for gitlab.com it is `gitlab.com`):
 
 ```json
 "GitLabPipelines": {
   "gitlab.com": {
-    "token": "<personal-access-token>",
     "interval": 5000,
     "notifyOnFailed": true
   }
@@ -46,15 +45,40 @@ Add the following to your `settings.json`. The key is your git remote host (for 
 
 | Field | Required | Default | Meaning |
 |-------|----------|---------|---------|
-| `token` | ✅* | — | GitLab [Personal Access Token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) with `read_api` (or `api` for retry/cancel). |
 | `interval` | | `5000` | Refresh interval in milliseconds. |
 | `notifyOnFailed` | | `true` | Show a notification when a pipeline fails. |
-
-\* **Don't want the token in `settings.json`?** If `token` is omitted, the extension falls back to the **`GITLAB_TOKEN`** environment variable when VS Code is launched from a shell where it is exported. An explicit `token` in settings always takes precedence.
 
 The domain and project are derived from each repo's git remote, so one entry per domain serves every repository hosted there.
 
 > The configuration key is intentionally `GitLabPipelines` for drop-in compatibility with the original extension.
+
+### Token (required)
+
+A GitLab [Personal Access Token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html)
+with `read_api` scope (or `api` if you want retry/cancel) is required. It is resolved from the
+first source that has it, most secure first:
+
+1. **VS Code Secret Storage (recommended).** Run **“GitLab CI: Set GitLab Token (Secret Storage)”**
+   from the Command Palette and paste the token. It is stored in the OS keychain, never in a file.
+   Use **“Clear GitLab Token (Secret Storage)”** to remove it.
+2. **`settings.json`** — a legacy plaintext `"token": "<pat>"` under your host still works, but is
+   discouraged. If one is present and Secret Storage has none, the extension copies it into Secret
+   Storage on startup and tells you that you can delete the plaintext entry.
+3. **`GITLAB_TOKEN`** environment variable — used when VS Code is launched from a shell where it is
+   exported. Handy for keeping the token out of any settings file entirely.
+
+## Commands
+
+All commands are under the **GitLab CI** category in the Command Palette:
+
+| Command | What it does |
+|---------|--------------|
+| Refresh | Re-poll every watched repository now. |
+| Set GitLab Token (Secret Storage) | Store a token for a host in the OS keychain. |
+| Clear GitLab Token (Secret Storage) | Remove a stored token for a host. |
+| Retry / Cancel pipeline | Also available as inline buttons in the tree. |
+| View job log | From a job's context menu; opens a cleaned, read-only trace. |
+| Open in GitLab | Click a pipeline or job. |
 
 ## Development
 

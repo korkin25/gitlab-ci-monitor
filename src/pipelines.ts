@@ -4,6 +4,14 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { gitUrlParser } from './git-url';
 import { RepoConfig } from './gitlab-api';
+import { TokenStore, resolveToken } from './token-store';
+
+// The SecretStorage-backed token store, wired up from the extension's activate().
+// Secrets are served synchronously from its in-memory cache (see TokenStore).
+let tokenStore: TokenStore | null = null;
+export const setTokenStore = (store: TokenStore | null): void => {
+	tokenStore = store;
+};
 
 // The GitLab HTTP layer lives in a vscode-free module so it can be unit-tested;
 // re-export it here so existing importers of `./pipelines` keep working.
@@ -73,12 +81,38 @@ export const getExtensionSettings = (domain: string): any => {
 	const settings = workspace.getConfiguration('GitLabPipelines');
 	const perDomain = (settings.get(domain) as any) || {};
 	const merged = { ...defaults, ...perDomain };
-	// Optional convenience: fall back to the GITLAB_TOKEN environment variable
-	// so a token does not have to be written into settings.json.
-	if (!merged.token && process.env.GITLAB_TOKEN) {
-		merged.token = process.env.GITLAB_TOKEN;
-	}
+	// Token resolution, most trusted first: VS Code SecretStorage → a plaintext
+	// `token` in settings.json (legacy) → the GITLAB_TOKEN environment variable.
+	merged.token = resolveToken({
+		secret: tokenStore ? tokenStore.cached(domain) : null,
+		setting: perDomain.token ?? null,
+		env: process.env.GITLAB_TOKEN ?? null
+	});
 	return merged;
+};
+
+// Distinct GitLab domains across the watched workspace folders. Used to warm the
+// SecretStorage cache before the first refresh (no token required to compute).
+export const getWorkspaceDomains = (): string[] => {
+	const folders = workspace.workspaceFolders || [];
+	const domains = new Set<string>();
+	for (const ws of folders) {
+		const fsPath = ws && ws.uri && ws.uri.fsPath;
+		if (!fsPath) {
+			continue;
+		}
+		if (!existsSync(join(fsPath, '.git'))) {
+			continue;
+		}
+		if (!existsSync(join(fsPath, '.gitlab-ci.yml'))) {
+			continue;
+		}
+		const repo = getRepoInfo(ws);
+		if (repo && repo.domain) {
+			domains.add(repo.domain);
+		}
+	}
+	return Array.from(domains);
 };
 
 export const getConfig = (): RepoConfig | null => {

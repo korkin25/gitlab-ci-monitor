@@ -2,13 +2,14 @@
 
 ## Current state / next action
 
-- **State:** `GCM-1` and `GCM-2` are **done**. Tooling in place: `node:test` suite
-  (19 green tests), ESLint flat config + Prettier (lint-clean, `format:check` passes),
-  all wired into `npm` scripts and CI as hard gates. `npm run compile` builds clean.
+- **State:** `GCM-1`, `GCM-2`, `GCM-3` are **done**. Tooling: `node:test` suite
+  (25 green tests), ESLint flat config + Prettier (lint-clean), all wired into CI as
+  hard gates. Tokens now resolve Secret Storage → `settings.json` → `GITLAB_TOKEN`, with
+  a `TokenStore` cache, Set/Clear Token commands, and startup migration of legacy tokens.
   Details in `CHANGELOG.md` → Unreleased.
-- **Next action:** Start `GCM-3` — store the GitLab token in VS Code SecretStorage
-  instead of plaintext `settings.json`, keeping the `GITLAB_TOKEN` env fallback.
-  Test-first (add tests around the token-resolution logic before changing behavior).
+- **Next action:** Start `GCM-4` — add a tag-triggered release/package CI job that builds
+  the `.vsix` and, on explicit opt-in, publishes to the VS Code Marketplace / OpenVSX via
+  `@vscode/vsce`.
 
 ## Legend
 
@@ -42,5 +43,4 @@ confirm with the user before starting; each is delivered test-first.
 
 | ID | Status | Task |
 |----|--------|------|
-| GCM-3 | ⬜ | Store the GitLab token in VS Code SecretStorage instead of plaintext `settings.json`; keep `GITLAB_TOKEN` env fallback. |
 | GCM-4 | ⬜ | Add a release/package CI job (tag-triggered) that builds the `.vsix` and, on explicit opt-in, publishes to the VS Code Marketplace / OpenVSX via `@vscode/vsce`. |

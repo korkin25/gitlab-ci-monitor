@@ -68,6 +68,17 @@
 				"command": "pipeline.click",
 				"title": "Open in GitLab",
 				"category": "GitLab CI"
+			},
+			{
+				"command": "gitlabCiMonitor.setToken",
+				"title": "Set GitLab Token (Secret Storage)",
+				"category": "GitLab CI",
+				"icon": "$(key)"
+			},
+			{
+				"command": "gitlabCiMonitor.clearToken",
+				"title": "Clear GitLab Token (Secret Storage)",
+				"category": "GitLab CI"
 			}
 		],
 		"views": {
