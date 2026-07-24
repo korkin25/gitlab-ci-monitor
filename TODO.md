@@ -2,17 +2,13 @@
 
 ## Current state / next action
 
-- **State:** `GCM-1`–`GCM-4` are **all done** — the original backlog is cleared.
-  Tooling: `node:test` suite (25 green tests), ESLint + Prettier (lint-clean), token in
-  Secret Storage, and a tag-triggered release workflow that builds a lean `.vsix` and
-  publishes on opt-in. `npm run package` builds the `.vsix` locally (verified). Details in
-  `CHANGELOG.md` → Unreleased.
-- **Release:** `v0.2.0` is the first release cut under the new framework (tag triggers
+- **State:** `GCM-1`–`GCM-5` done. Tooling: `node:test` suite (29 green tests),
+  ESLint + Prettier (lint-clean), token in Secret Storage, tag-triggered release workflow.
+  Latest feature: clicking a repo in one panel expands it in the other (`GCM-5`).
+- **Release:** `v0.3.0` is the current release (adds `GCM-5`). The tag triggers
   `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
-  Release; install via **Extensions: Install from VSIX…**). Marketplace/Open VSX publish
+  Release; install via **Extensions: Install from VSIX…**. Marketplace/Open VSX publish
   stays opt-in (no `VSCE_PAT`/`OVSX_PAT` secrets configured yet).
-- **Latest work:** `GCM-5` done — clicking a repo in one panel now expands it in the
-  other (immediate cross-view reveal on selection). 29 green tests. In `[Unreleased]`.
 - **Next action:** For the next release, add entries under `## [Unreleased]`, bump
   `package.json`, move Unreleased into a dated `## [x.y.z]` section, then push the matching
   `vX.Y.Z` tag. Otherwise, agree the next feature with the user (test-first).

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.3.0] — 2026-07-24
+
 ### Added
 - **Click a repo to expand it in both panels.** Selecting a repository in either tree (the "GitLab CI" view in Explorer or "Pipelines" in Source Control) now immediately expands and reveals that repository in the other panel too. (GCM-5)
 
