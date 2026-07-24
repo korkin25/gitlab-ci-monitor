@@ -14,9 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Test suite** (`node:test`, zero extra runtime deps) covering the git-remote URL parser, the ANSI/section log cleaner, job ordering, and the GitLab HTTP layer (`buildRequestOptions` + `apiRequest` over a local server). Run with `npm test`. (GCM-1)
 - **ESLint + Prettier** (dev-only): ESLint flat config with `typescript-eslint`, Prettier for formatting, and `eslint-config-prettier` to keep them from fighting. New scripts `npm run lint` / `lint:fix` / `format` / `format:check`. CI now runs lint and format check as hard gates. (GCM-2)
 - **Token in VS Code Secret Storage.** New commands **“Set GitLab Token (Secret Storage)”** and **“Clear GitLab Token (Secret Storage)”** store the token in the OS keychain instead of plaintext `settings.json`. Tokens are resolved most-secure-first: Secret Storage → `settings.json` `token` (legacy) → `GITLAB_TOKEN`. A plaintext `settings.json` token is auto-migrated into Secret Storage on startup (the setting is left in place; you're told you can remove it). The `GITLAB_TOKEN` env fallback is unchanged. (GCM-3)
+- **Release workflow** (`.github/workflows/release.yml`): a SemVer tag (`v*.*.*`) that matches `package.json` runs the full quality gate, builds the `.vsix` with `@vscode/vsce`, and attaches it to a generated GitHub Release. Publishing to the VS Code Marketplace / Open VSX is opt-in via the `VSCE_PAT` / `OVSX_PAT` secrets. (GCM-4)
 
 ### Changed
 - The `token` field in `settings.json` is now legacy/discouraged — the README documents Secret Storage as the recommended location. (GCM-3)
+- **Leaner `.vsix`:** `.vscodeignore` now excludes dev/governance files (`eslint.config.mjs`, Prettier configs, `CLAUDE.md`, `AGENTS.md`, `TODO.md`, `.claude/`), so the published package is just the compiled `out/`, icon, README/CHANGELOG, and LICENSE/NOTICE. (GCM-4)
 - **Internal refactor (no behavior change):** pure logic extracted into VS Code-free modules so it is unit-testable — `src/git-url.ts`, `src/ansi.ts`, `src/job-order.ts`, and the whole GitLab REST client in `src/gitlab-api.ts`. `src/pipelines.ts` re-exports the HTTP layer, so existing imports are unaffected.
 - Codebase reformatted to the Prettier style (tabs, single quotes, 120-col) and made lint-clean. (GCM-2)
 

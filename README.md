@@ -94,6 +94,24 @@ CI (GitHub Actions) runs lint, format check, type-check, tests, and a dependency
 every push. ESLint owns code quality and Prettier owns formatting (`eslint-config-prettier`
 keeps them from fighting).
 
+### Releasing
+
+Pushing a SemVer tag that matches `package.json` (e.g. `v0.1.7`) triggers the
+[release workflow](.github/workflows/release.yml): it re-runs the full quality gate, builds
+the `.vsix` with `@vscode/vsce`, and attaches it to a generated GitHub Release.
+
+Publishing to the marketplaces is **opt-in** — each publish step runs only when its token
+secret is configured in the repository:
+
+| Secret | Publishes to |
+|--------|--------------|
+| `VSCE_PAT` | VS Code Marketplace (`vsce publish`) |
+| `OVSX_PAT` | Open VSX (`ovsx publish`) |
+
+```bash
+npm run package    # build a .vsix locally (same command the release job runs)
+```
+
 The pure, VS Code-independent logic (git-remote parsing, log cleaning, job ordering, the
 GitLab HTTP client) lives in dedicated modules and is covered by `npm test`; the runner is
 Node's built-in `node:test`, so there are no extra test dependencies.

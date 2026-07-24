@@ -1,5 +1,6 @@
 .vscode/**
 .vscode-test/**
+.claude/**
 src/**
 test/**
 out/**/*.map
@@ -10,3 +11,11 @@ tsconfig.test.json
 .gitignore
 .github/**
 *.vsix
+
+# dev tooling / governance — not shipped to users
+eslint.config.mjs
+.prettierrc.json
+.prettierignore
+AGENTS.md
+CLAUDE.md
+TODO.md

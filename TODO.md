@@ -2,14 +2,15 @@
 
 ## Current state / next action
 
-- **State:** `GCM-1`, `GCM-2`, `GCM-3` are **done**. Tooling: `node:test` suite
-  (25 green tests), ESLint flat config + Prettier (lint-clean), all wired into CI as
-  hard gates. Tokens now resolve Secret Storage → `settings.json` → `GITLAB_TOKEN`, with
-  a `TokenStore` cache, Set/Clear Token commands, and startup migration of legacy tokens.
-  Details in `CHANGELOG.md` → Unreleased.
-- **Next action:** Start `GCM-4` — add a tag-triggered release/package CI job that builds
-  the `.vsix` and, on explicit opt-in, publishes to the VS Code Marketplace / OpenVSX via
-  `@vscode/vsce`.
+- **State:** `GCM-1`–`GCM-4` are **all done** — the original backlog is cleared.
+  Tooling: `node:test` suite (25 green tests), ESLint + Prettier (lint-clean), token in
+  Secret Storage, and a tag-triggered release workflow that builds a lean `.vsix` and
+  publishes on opt-in. `npm run package` builds the `.vsix` locally (verified). Details in
+  `CHANGELOG.md` → Unreleased.
+- **Next action:** None queued. When ready, cut the first release under the new framework:
+  bump `package.json` version, move `## [Unreleased]` into a dated version section in
+  `CHANGELOG.md`, then push the matching `vX.Y.Z` tag to trigger the release. Otherwise,
+  agree the next feature with the user (test-first).
 
 ## Legend
 
@@ -34,13 +35,14 @@ fresh (cold-start) session knows exactly what to do next.
 
 | ID | Status | Task |
 |----|--------|------|
-| —  | —      | (none yet — agree the first task with the user) |
+| —  | —      | (none — GCM-1…GCM-4 done; agree the next task with the user) |
 
 ## Backlog
 
-Candidate improvements suggested by the current codebase and README. Prioritize and
-confirm with the user before starting; each is delivered test-first.
+The initial backlog (`GCM-1`…`GCM-4`) is complete — see `CHANGELOG.md` → Unreleased.
+New candidates below; prioritize and confirm with the user before starting, each
+delivered test-first.
 
 | ID | Status | Task |
 |----|--------|------|
-| GCM-4 | ⬜ | Add a release/package CI job (tag-triggered) that builds the `.vsix` and, on explicit opt-in, publishes to the VS Code Marketplace / OpenVSX via `@vscode/vsce`. |
+| —  | —      | (empty — add new `GCM-<n>` items as they come up) |
