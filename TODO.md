@@ -2,9 +2,11 @@
 
 ## Current state / next action
 
-- **State:** `GCM-1`–`GCM-5` done. Tooling: `node:test` suite (29 green tests),
+- **State:** `GCM-1`–`GCM-6` done. Tooling: `node:test` suite (28 green tests),
   ESLint + Prettier (lint-clean), token in Secret Storage, tag-triggered release workflow.
-  Latest feature: clicking a repo in one panel expands it in the other (`GCM-5`).
+  Latest: `GCM-6` — expanding a project (via file open or repo click) now expands it in
+  both panels **in place**, without switching sidebars/focus (replaced `reveal()` with
+  tree-model expansion; `GCM-5`'s reveal caused the focus jump). Needs testing in VS Code.
 - **Release:** `v0.3.0` is the current release (adds `GCM-5`). The tag triggers
   `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
   Release; install via **Extensions: Install from VSIX…**. Marketplace/Open VSX publish

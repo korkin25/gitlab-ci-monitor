@@ -10,12 +10,11 @@ import {
 	commands,
 	Uri,
 	StatusBarAlignment,
-	StatusBarItem,
-	TreeView
+	StatusBarItem
 } from 'vscode';
 import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs } from './pipelines';
 import { orderJobs } from './job-order';
-import { planRepoReveal } from './reveal';
+import { repoProjectForPath, expansionChanges } from './expansion';
 
 // ---------------------------------------------------------------------------
 // module state
@@ -82,15 +81,17 @@ const STATUS_CODICON: { [k: string]: string } = {
 
 function createRepoNode(config: RepoConfig, count: number): any {
 	const short = (config.project || '').split('/').filter(Boolean).slice(-1)[0] || config.project;
+	const expanded = expandedRepos.has(config.project);
 	return {
-		id: `repo:${config.project}`,
+		// Encode the expansion state in the id: when it flips, VS Code sees a new
+		// node and applies the fresh collapsibleState, so a refresh reliably
+		// expands/collapses the repo in place — no reveal(), no sidebar jump.
+		id: `repo:${config.project}:${expanded ? 'x' : 'c'}`,
 		isRepoNode: true,
 		project: config.project,
 		fsPath: config.fsPath,
 		label: `📦 ${short} · ${config.currentBranch || ''} (${count})`,
-		collapsibleState: expandedRepos.has(config.project)
-			? TreeItemCollapsibleState.Expanded
-			: TreeItemCollapsibleState.Collapsed,
+		collapsibleState: expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		tooltip: config.project
 	};
 }
@@ -320,54 +321,46 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 }
 
 // ---------------------------------------------------------------------------
-// reveal the repo of the active editor (others stay collapsed)
+// expansion (no reveal — the sidebar/focus must never jump)
 // ---------------------------------------------------------------------------
 
-export function revealCurrentRepo(views: TreeView<TreeItem>[]): void {
+// Rebuild the repo node objects from the last-fetched data so their
+// collapsibleState reflects the current `expandedRepos`. VS Code applies
+// collapsibleState on every refresh, so this expands/collapses a repo in both
+// panels in place, without a reveal() (which would force its container to show).
+function rebuildRepoNodes(): void {
+	repoNodes = Array.from(configByProject.values()).map((config) =>
+		createRepoNode(config, (pipelinesByRepo.get(config.project) || []).length)
+	);
+}
+
+/**
+ * Expand or collapse a repo across both panels without moving focus. Rebuilds the
+ * nodes with the new collapsibleState and fires a tree refresh; no reveal(), so
+ * neither the Explorer nor the Source Control sidebar is forced to the front.
+ * A no-op when the repo is already in the requested state (also swallows the echo
+ * events a programmatic refresh can produce).
+ */
+export function applyRepoExpansion(provider: TreeViewProvider, project: string, expanded: boolean): void {
+	if (!expansionChanges(expandedRepos, project, expanded)) {
+		return;
+	}
+	setRepoExpanded(project, expanded);
+	rebuildRepoNodes();
+	provider.refresh();
+}
+
+// Expand the repo of the active editor in place (no focus change).
+export function expandCurrentRepo(provider: TreeViewProvider): void {
 	const ed = window.activeTextEditor;
-	if (!ed || !ed.document || !ed.document.uri) {
-		return;
-	}
-	const wf = workspace.getWorkspaceFolder(ed.document.uri);
-	if (!wf) {
-		return;
-	}
-	const target = repoNodes.find((r) => r.fsPath === wf.uri.fsPath);
-	if (!target) {
-		return;
-	}
-	expandedRepos.add(target.project); // remember it so it stays open across refreshes
-	for (const v of views) {
-		try {
-			v.reveal(target, { expand: true, select: false, focus: false });
-		} catch (e) {
-			/* ignore */
+	if (ed && ed.document && ed.document.uri) {
+		const wf = workspace.getWorkspaceFolder(ed.document.uri);
+		if (wf) {
+			const project = repoProjectForPath(repoNodes, wf.uri.fsPath);
+			if (project) {
+				applyRepoExpansion(provider, project, true);
+			}
 		}
 	}
 	updateStatusBar();
-}
-
-// ---------------------------------------------------------------------------
-// reveal a repo across the views (e.g. when it is clicked in one of them)
-// ---------------------------------------------------------------------------
-
-/**
- * Expand and reveal the repo `project` in the given views, so clicking a repo in
- * one panel (Explorer's "GitLab CI") also opens it in the other ("Pipelines" in
- * Source Control). Pass `exclude` to skip the view the click came from. Reveals
- * with `select: false`, so this never triggers a further selection event.
- */
-export function revealRepoInViews(views: TreeView<TreeItem>[], project: string, exclude?: TreeView<TreeItem>): void {
-	expandedRepos.add(project); // keep it open across the periodic refresh
-	const { target, targetViews } = planRepoReveal(repoNodes, project, views, exclude);
-	if (!target) {
-		return;
-	}
-	for (const v of targetViews) {
-		try {
-			v.reveal(target, { expand: true, select: false, focus: false });
-		} catch (e) {
-			/* ignore */
-		}
-	}
 }

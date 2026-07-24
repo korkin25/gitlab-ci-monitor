@@ -3,11 +3,10 @@ import {
 	TreeViewProvider,
 	updateAllPipelinesStatus,
 	initStatusBar,
-	revealCurrentRepo,
+	expandCurrentRepo,
 	getConfigForPipeline,
 	getConfigForProject,
-	setRepoExpanded,
-	revealRepoInViews
+	applyRepoExpansion
 } from './tree-view';
 import { stripAnsi } from './ansi';
 import {
@@ -34,28 +33,21 @@ export async function activate(context: ExtensionContext) {
 	const views: TreeView<TreeItem>[] = [explorerView, scmView];
 	context.subscriptions.push(explorerView, scmView);
 
-	// remember which repo groups the user expands, so they persist across refreshes
+	// Keep the two panels in sync: expanding or collapsing a repo in one applies
+	// to the other too, in place — no reveal(), so focus never jumps between the
+	// Explorer and Source Control sidebars.
 	for (const v of views) {
 		context.subscriptions.push(
 			v.onDidExpandElement((e: any) => {
 				if (e.element && e.element.isRepoNode) {
-					setRepoExpanded(e.element.project, true);
+					applyRepoExpansion(provider, e.element.project, true);
 				}
 			})
 		);
 		context.subscriptions.push(
 			v.onDidCollapseElement((e: any) => {
 				if (e.element && e.element.isRepoNode) {
-					setRepoExpanded(e.element.project, false);
-				}
-			})
-		);
-		// clicking a repo in one panel expands it in the other(s) too
-		context.subscriptions.push(
-			v.onDidChangeSelection((e: any) => {
-				const node = e.selection && e.selection[0];
-				if (node && node.isRepoNode) {
-					revealRepoInViews(views, node.project);
+					applyRepoExpansion(provider, e.element.project, false);
 				}
 			})
 		);
@@ -143,7 +135,7 @@ export async function activate(context: ExtensionContext) {
 	);
 
 	// follow the active editor: expand its repo group and refresh the status bar
-	context.subscriptions.push(window.onDidChangeActiveTextEditor(() => revealCurrentRepo(views)));
+	context.subscriptions.push(window.onDidChangeActiveTextEditor(() => expandCurrentRepo(provider)));
 
 	// --- secure token storage (VS Code SecretStorage) -----------------------
 	const tokenStore = new TokenStore(context.secrets);
@@ -239,7 +231,7 @@ export async function activate(context: ExtensionContext) {
 	context.subscriptions.push({ dispose: () => clearInterval(tid) });
 
 	updateAllPipelinesStatus(provider)
-		.then(() => revealCurrentRepo(views))
+		.then(() => expandCurrentRepo(provider))
 		.catch(() => {
 			/* ignore */
 		});
