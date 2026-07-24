@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Click a repo to expand it in both panels.** Selecting a repository in either tree (the "GitLab CI" view in Explorer or "Pipelines" in Source Control) now immediately expands and reveals that repository in the other panel too. (GCM-5)
+
 ### Changed
 - CI: bump GitHub Actions to `actions/checkout@v5`, `actions/setup-node@v5`, and `actions/upload-artifact@v5` (drop the Node 20 runtime deprecation warning).
 

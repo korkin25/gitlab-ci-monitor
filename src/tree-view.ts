@@ -15,6 +15,7 @@ import {
 } from 'vscode';
 import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs } from './pipelines';
 import { orderJobs } from './job-order';
+import { planRepoReveal } from './reveal';
 
 // ---------------------------------------------------------------------------
 // module state
@@ -344,4 +345,29 @@ export function revealCurrentRepo(views: TreeView<TreeItem>[]): void {
 		}
 	}
 	updateStatusBar();
+}
+
+// ---------------------------------------------------------------------------
+// reveal a repo across the views (e.g. when it is clicked in one of them)
+// ---------------------------------------------------------------------------
+
+/**
+ * Expand and reveal the repo `project` in the given views, so clicking a repo in
+ * one panel (Explorer's "GitLab CI") also opens it in the other ("Pipelines" in
+ * Source Control). Pass `exclude` to skip the view the click came from. Reveals
+ * with `select: false`, so this never triggers a further selection event.
+ */
+export function revealRepoInViews(views: TreeView<TreeItem>[], project: string, exclude?: TreeView<TreeItem>): void {
+	expandedRepos.add(project); // keep it open across the periodic refresh
+	const { target, targetViews } = planRepoReveal(repoNodes, project, views, exclude);
+	if (!target) {
+		return;
+	}
+	for (const v of targetViews) {
+		try {
+			v.reveal(target, { expand: true, select: false, focus: false });
+		} catch (e) {
+			/* ignore */
+		}
+	}
 }

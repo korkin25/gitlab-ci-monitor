@@ -6,7 +6,8 @@ import {
 	revealCurrentRepo,
 	getConfigForPipeline,
 	getConfigForProject,
-	setRepoExpanded
+	setRepoExpanded,
+	revealRepoInViews
 } from './tree-view';
 import { stripAnsi } from './ansi';
 import {
@@ -46,6 +47,15 @@ export async function activate(context: ExtensionContext) {
 			v.onDidCollapseElement((e: any) => {
 				if (e.element && e.element.isRepoNode) {
 					setRepoExpanded(e.element.project, false);
+				}
+			})
+		);
+		// clicking a repo in one panel expands it in the other(s) too
+		context.subscriptions.push(
+			v.onDidChangeSelection((e: any) => {
+				const node = e.selection && e.selection[0];
+				if (node && node.isRepoNode) {
+					revealRepoInViews(views, node.project);
 				}
 			})
 		);

@@ -11,6 +11,8 @@
   `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
   Release; install via **Extensions: Install from VSIX…**). Marketplace/Open VSX publish
   stays opt-in (no `VSCE_PAT`/`OVSX_PAT` secrets configured yet).
+- **Latest work:** `GCM-5` done — clicking a repo in one panel now expands it in the
+  other (immediate cross-view reveal on selection). 29 green tests. In `[Unreleased]`.
 - **Next action:** For the next release, add entries under `## [Unreleased]`, bump
   `package.json`, move Unreleased into a dated `## [x.y.z]` section, then push the matching
   `vX.Y.Z` tag. Otherwise, agree the next feature with the user (test-first).
