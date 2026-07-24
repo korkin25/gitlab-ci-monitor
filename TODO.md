@@ -6,7 +6,9 @@
   ESLint + Prettier (lint-clean), token in Secret Storage, tag-triggered release workflow.
   Latest: `GCM-6` — expanding a project (via file open or repo click) now expands it in
   both panels **in place**, without switching sidebars/focus (replaced `reveal()` with
-  tree-model expansion; `GCM-5`'s reveal caused the focus jump). Needs testing in VS Code.
+  tree-model expansion; `GCM-5`'s reveal caused the focus jump). Shipped in `v0.3.1`.
+- **Verify:** confirm in VS Code that opening a file / clicking a repo expands it in both
+  panels without the sidebar jumping (couldn't be checked headless during development).
 - **Release:** `v0.3.0` is the current release (adds `GCM-5`). The tag triggers
   `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
   Release; install via **Extensions: Install from VSIX…**. Marketplace/Open VSX publish

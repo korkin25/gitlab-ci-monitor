@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.3.1] — 2026-07-24
+
 ### Fixed
 - **Expanding a project no longer switches sidebars or steals focus.** Opening a file in a project, or expanding a repo in one panel, now expands that repo in **both** panels *in place* — previously it forced the Source Control sidebar to the front. Selecting a repo in the Source Control "Pipelines" view now reliably expands it too. Implemented by driving expansion through the tree model (no `reveal()`). (GCM-6, fixes GCM-5)
 
