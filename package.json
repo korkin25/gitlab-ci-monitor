@@ -2,7 +2,7 @@
 	"name": "gitlab-ci-monitor",
 	"displayName": "GitLab CI Monitor",
 	"description": "Monitor GitLab pipelines across every repo in your workspace — in Explorer and Source Control.",
-	"version": "0.1.6",
+	"version": "0.2.0",
 	"publisher": "korkin25",
 	"license": "ISC",
 	"icon": "icon.png",

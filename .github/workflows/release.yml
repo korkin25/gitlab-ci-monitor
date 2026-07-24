@@ -60,7 +60,21 @@ jobs:
             - name: Create GitHub Release
               env:
                   GH_TOKEN: ${{ github.token }}
-              run: gh release create "$GITHUB_REF_NAME" "$VSIX" --generate-notes --title "$GITHUB_REF_NAME"
+              run: |
+                  cat > release-notes.md <<EOF
+                  ### Install
+
+                  Download **$VSIX** from the assets below, then in VS Code either:
+
+                  - open the Command Palette and run **Extensions: Install from VSIX…**, then pick the file, or
+                  - run \`code --install-extension $VSIX\` from a terminal.
+
+                  **What's new:** see the [CHANGELOG](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/CHANGELOG.md).
+                  EOF
+                  gh release create "$GITHUB_REF_NAME" "$VSIX" \
+                    --title "$GITHUB_REF_NAME" \
+                    --notes-file release-notes.md \
+                    --generate-notes
 
             # Publishing is opt-in: each step runs only when its token secret is set.
             - name: Publish to VS Code Marketplace

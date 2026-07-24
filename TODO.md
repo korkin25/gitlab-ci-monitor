@@ -7,10 +7,13 @@
   Secret Storage, and a tag-triggered release workflow that builds a lean `.vsix` and
   publishes on opt-in. `npm run package` builds the `.vsix` locally (verified). Details in
   `CHANGELOG.md` → Unreleased.
-- **Next action:** None queued. When ready, cut the first release under the new framework:
-  bump `package.json` version, move `## [Unreleased]` into a dated version section in
-  `CHANGELOG.md`, then push the matching `vX.Y.Z` tag to trigger the release. Otherwise,
-  agree the next feature with the user (test-first).
+- **Release:** `v0.2.0` is the first release cut under the new framework (tag triggers
+  `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
+  Release; install via **Extensions: Install from VSIX…**). Marketplace/Open VSX publish
+  stays opt-in (no `VSCE_PAT`/`OVSX_PAT` secrets configured yet).
+- **Next action:** For the next release, add entries under `## [Unreleased]`, bump
+  `package.json`, move Unreleased into a dated `## [x.y.z]` section, then push the matching
+  `vX.Y.Z` tag. Otherwise, agree the next feature with the user (test-first).
 
 ## Legend
 
