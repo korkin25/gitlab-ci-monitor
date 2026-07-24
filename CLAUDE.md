@@ -44,7 +44,7 @@ This project is developed by an AI agent under continuous, autonomous iteration.
 
 - Test-driven: for every agreed feature write the tests FIRST (they must fail), then implement until green. No feature code without a test.
 - Feature branches: work on feature/<task-id>-<slug> off main; merge to main only when the full suite is green.
-- Commit periodically in small logical units, Conventional Commits (feat:, fix:, test:, docs:, chore:, ci:). Never add a Co-Authored-By trailer.
+- Commit periodically in small logical units, Conventional Commits (feat:, fix:, test:, docs:, chore:, ci:). Never add a Co-Authored-By trailer. Push to `origin` after every commit.
 - Releases only after green tests: tag vX.Y.Z (SemVer) after the full suite passes on main. Publishing (VS Code Marketplace / OpenVSX via `@vscode/vsce`) is a separate, later, explicit step.
 - CI on every push (GitHub Actions): lint (eslint + prettier), typecheck (`tsc`), tests (the project's runner), and dependency audit (`npm audit`). A tag triggers the package/release job.
 - Security first: no secrets in git; least privilege; treat GitLab access tokens as full-access credentials.
