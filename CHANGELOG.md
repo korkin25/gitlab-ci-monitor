@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.3.2] — 2026-07-24
+
+### Fixed
+- **Clicking a repository in the Source Control "Pipelines" panel now expands it.** The expand/collapse handlers used to rebuild and refresh the tree in the middle of a click, which replaced the very node being expanded and cancelled it — so repo clicks did nothing in the Source Control panel (Explorer kept working because it also expands via the open file). Native clicks now just record the expansion state; the tree is not rebuilt mid-click. (GCM-7)
+
 ## [0.3.1] — 2026-07-24
 
 ### Fixed

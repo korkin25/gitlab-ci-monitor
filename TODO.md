@@ -7,8 +7,14 @@
   Latest: `GCM-6` — expanding a project (via file open or repo click) now expands it in
   both panels **in place**, without switching sidebars/focus (replaced `reveal()` with
   tree-model expansion; `GCM-5`'s reveal caused the focus jump). Shipped in `v0.3.1`.
-- **Verify:** confirm in VS Code that opening a file / clicking a repo expands it in both
-  panels without the sidebar jumping (couldn't be checked headless during development).
+- **Latest:** `GCM-7` (`v0.3.2`) — clicking a repo node in the Source Control "Pipelines"
+  panel now expands it. The native expand/collapse handlers no longer rebuild/refresh the
+  tree mid-click (that replaced the node being expanded and cancelled it); they only record
+  state now. Explorer (file-click path) unchanged.
+- **Verify:** confirm in VS Code that (a) clicking a repo in Source Control expands it, and
+  (b) Explorer still works. Watch for a possible one-off collapse of an expanded pipeline
+  within ~5s of expanding a repo (repo node id flips on the next periodic refresh); report
+  if noticeable and it can be removed.
 - **Release:** `v0.3.0` is the current release (adds `GCM-5`). The tag triggers
   `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
   Release; install via **Extensions: Install from VSIX…**. Marketplace/Open VSX publish

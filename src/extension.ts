@@ -6,7 +6,7 @@ import {
 	expandCurrentRepo,
 	getConfigForPipeline,
 	getConfigForProject,
-	applyRepoExpansion
+	setRepoExpanded
 } from './tree-view';
 import { stripAnsi } from './ansi';
 import {
@@ -33,21 +33,23 @@ export async function activate(context: ExtensionContext) {
 	const views: TreeView<TreeItem>[] = [explorerView, scmView];
 	context.subscriptions.push(explorerView, scmView);
 
-	// Keep the two panels in sync: expanding or collapsing a repo in one applies
-	// to the other too, in place — no reveal(), so focus never jumps between the
-	// Explorer and Source Control sidebars.
+	// Only remember which repos the user expands/collapses — do NOT rebuild or
+	// refresh here. Rebuilding mid-click would replace the very node the user is
+	// expanding and cancel the native expand/collapse (this is what stopped repo
+	// clicks working in the Source Control panel). The other panel and the
+	// persisted state catch up on the next periodic refresh.
 	for (const v of views) {
 		context.subscriptions.push(
 			v.onDidExpandElement((e: any) => {
 				if (e.element && e.element.isRepoNode) {
-					applyRepoExpansion(provider, e.element.project, true);
+					setRepoExpanded(e.element.project, true);
 				}
 			})
 		);
 		context.subscriptions.push(
 			v.onDidCollapseElement((e: any) => {
 				if (e.element && e.element.isRepoNode) {
-					applyRepoExpansion(provider, e.element.project, false);
+					setRepoExpanded(e.element.project, false);
 				}
 			})
 		);
