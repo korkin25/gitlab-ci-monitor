@@ -18,7 +18,10 @@ test('skips canceled jobs entirely', () => {
 		{ id: 31, name: 'build', stage: 'build', status: 'success' }
 	];
 	const out = orderJobs(jobs);
-	assert.deepEqual(out.map((j) => j.name), ['build']);
+	assert.deepEqual(
+		out.map((j) => j.name),
+		['build']
+	);
 });
 
 test('orders by first-seen stage, then by job id — stage order beats id', () => {
@@ -29,5 +32,8 @@ test('orders by first-seen stage, then by job id — stage order beats id', () =
 		{ id: 5, name: 'deploy', stage: 'deploy', status: 'manual' }
 	];
 	const out = orderJobs(jobs);
-	assert.deepEqual(out.map((j) => j.name), ['compile', 'lint', 'unit', 'deploy']);
+	assert.deepEqual(
+		out.map((j) => j.name),
+		['compile', 'lint', 'unit', 'deploy']
+	);
 });

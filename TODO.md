@@ -2,12 +2,13 @@
 
 ## Current state / next action
 
-- **State:** `GCM-1` is **done** — test harness (`node:test`) is in place with 19 green
-  tests, and the pure logic has been extracted into VS Code-free modules
-  (`git-url`, `ansi`, `job-order`, `gitlab-api`). `npm test` runs the suite; the
-  extension still builds with `npm run compile`. Details in `CHANGELOG.md` → Unreleased.
-- **Next action:** Start `GCM-2` — add ESLint + Prettier, make the codebase lint-clean,
-  and wire both into `npm` scripts and CI. Continue test-first for any behavior change.
+- **State:** `GCM-1` and `GCM-2` are **done**. Tooling in place: `node:test` suite
+  (19 green tests), ESLint flat config + Prettier (lint-clean, `format:check` passes),
+  all wired into `npm` scripts and CI as hard gates. `npm run compile` builds clean.
+  Details in `CHANGELOG.md` → Unreleased.
+- **Next action:** Start `GCM-3` — store the GitLab token in VS Code SecretStorage
+  instead of plaintext `settings.json`, keeping the `GITLAB_TOKEN` env fallback.
+  Test-first (add tests around the token-resolution logic before changing behavior).
 
 ## Legend
 
@@ -41,6 +42,5 @@ confirm with the user before starting; each is delivered test-first.
 
 | ID | Status | Task |
 |----|--------|------|
-| GCM-2 | ⬜ | Add ESLint + Prettier config and make the codebase lint-clean; wire both into `npm` scripts and CI. |
 | GCM-3 | ⬜ | Store the GitLab token in VS Code SecretStorage instead of plaintext `settings.json`; keep `GITLAB_TOKEN` env fallback. |
 | GCM-4 | ⬜ | Add a release/package CI job (tag-triggered) that builds the `.vsix` and, on explicit opt-in, publishes to the VS Code Marketplace / OpenVSX via `@vscode/vsce`. |

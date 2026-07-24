@@ -1,43 +1,36 @@
 name: CI
 
 on:
-  push:
-  pull_request:
+    push:
+    pull_request:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+            - name: Install dependencies
+              run: npm ci
 
-      - name: Lint (eslint + prettier, if configured)
-        run: |
-          if ls .eslintrc* eslint.config.* >/dev/null 2>&1; then
-            npx --no-install eslint . || true
-          else
-            echo "No ESLint config found — skipping lint."
-          fi
-          if ls .prettierrc* prettier.config.* >/dev/null 2>&1; then
-            npx --no-install prettier --check . || true
-          else
-            echo "No Prettier config found — skipping format check."
-          fi
+            - name: Lint (ESLint)
+              run: npm run lint
 
-      - name: Typecheck / compile (tsc)
-        run: npm run compile --if-present
+            - name: Format check (Prettier)
+              run: npm run format:check
 
-      - name: Test (the project's runner, if configured)
-        run: npm test --if-present
+            - name: Typecheck / compile (tsc)
+              run: npm run compile
 
-      - name: Dependency audit
-        run: npm audit --audit-level=high || true
+            - name: Test
+              run: npm test
+
+            - name: Dependency audit
+              run: npm audit --audit-level=high || true

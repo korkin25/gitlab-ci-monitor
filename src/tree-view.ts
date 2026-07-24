@@ -1,11 +1,19 @@
 import {
-	TreeItem, TreeDataProvider, TreeItemCollapsibleState, ProviderResult,
-	Event, EventEmitter, window, workspace, commands, Uri,
-	StatusBarAlignment, StatusBarItem, TreeView
+	TreeItem,
+	TreeDataProvider,
+	TreeItemCollapsibleState,
+	ProviderResult,
+	Event,
+	EventEmitter,
+	window,
+	workspace,
+	commands,
+	Uri,
+	StatusBarAlignment,
+	StatusBarItem,
+	TreeView
 } from 'vscode';
-import {
-	RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs
-} from './pipelines';
+import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs } from './pipelines';
 import { orderJobs } from './job-order';
 
 // ---------------------------------------------------------------------------
@@ -31,7 +39,11 @@ let statusBar: StatusBarItem | undefined;
 const expandedRepos: Set<string> = new Set();
 
 export const setRepoExpanded = (project: string, expanded: boolean): void => {
-	if (expanded) { expandedRepos.add(project); } else { expandedRepos.delete(project); }
+	if (expanded) {
+		expandedRepos.add(project);
+	} else {
+		expandedRepos.delete(project);
+	}
 };
 
 export const getConfigForProject = (project: string): RepoConfig | null =>
@@ -40,13 +52,27 @@ export const getConfigForPipeline = (pipelineId: any): RepoConfig | null =>
 	pipelineConfigById.get(Number(pipelineId)) || currentConfig;
 
 const STATUS_EMOJI: { [k: string]: string } = {
-	success: '✅', running: '🏃', pending: '⌛', failed: '❌',
-	canceled: '⛔', skipped: '⏭️', manual: '🚦', created: '🕒', scheduled: '🗓️', waiting_for_resource: '⏳'
+	success: '✅',
+	running: '🏃',
+	pending: '⌛',
+	failed: '❌',
+	canceled: '⛔',
+	skipped: '⏭️',
+	manual: '🚦',
+	created: '🕒',
+	scheduled: '🗓️',
+	waiting_for_resource: '⏳'
 };
 const STATUS_CODICON: { [k: string]: string } = {
-	success: '$(check)', running: '$(sync~spin)', pending: '$(clock)', failed: '$(error)',
-	canceled: '$(circle-slash)', skipped: '$(debug-step-over)', manual: '$(person)',
-	created: '$(clock)', scheduled: '$(calendar)'
+	success: '$(check)',
+	running: '$(sync~spin)',
+	pending: '$(clock)',
+	failed: '$(error)',
+	canceled: '$(circle-slash)',
+	skipped: '$(debug-step-over)',
+	manual: '$(person)',
+	created: '$(clock)',
+	scheduled: '$(calendar)'
 };
 
 // ---------------------------------------------------------------------------
@@ -120,25 +146,41 @@ export class TreeViewProvider implements TreeDataProvider<TreeItem> {
 	}
 
 	getParent(element: any): ProviderResult<TreeItem> {
-		if (!element || element.isRepoNode) { return undefined; }
-		if (element.pipelineId != null) { return repoNodes.find((r) => r.project === element.project); }
+		if (!element || element.isRepoNode) {
+			return undefined;
+		}
+		if (element.pipelineId != null) {
+			return repoNodes.find((r) => r.project === element.project);
+		}
 		return undefined;
 	}
 
 	async getChildren(element?: any): Promise<TreeItem[]> {
-		if (!element) { return repoNodes; }
-		if (element.isRepoNode) { return pipelinesByRepo.get(element.project) || []; }
+		if (!element) {
+			return repoNodes;
+		}
+		if (element.isRepoNode) {
+			return pipelinesByRepo.get(element.project) || [];
+		}
 		if (element.pipelineId != null) {
 			const id = Number(element.pipelineId);
 			const config = pipelineConfigById.get(id) || currentConfig;
-			if (!config) { return []; }
+			if (!config) {
+				return [];
+			}
 			const status = element.pipelineStatus;
-			const ttl = (status === 'running' || status === 'pending' || status === 'created')
-				? JOBS_TTL_RUNNING : JOBS_TTL_DONE;
+			const ttl =
+				status === 'running' || status === 'pending' || status === 'created' ? JOBS_TTL_RUNNING : JOBS_TTL_DONE;
 			const cached = jobsCache.get(id);
-			if (cached && Date.now() - cached.ts < ttl) { return cached.items; }
-			let jobs: any[] = [];
-			try { jobs = await getPipelineJobs(config, id); } catch (e) { jobs = []; }
+			if (cached && Date.now() - cached.ts < ttl) {
+				return cached.items;
+			}
+			let jobs: any[];
+			try {
+				jobs = await getPipelineJobs(config, id);
+			} catch (e) {
+				jobs = [];
+			}
 			const items = orderJobs(jobs).map((j) => createJobNode(j, config));
 			jobsCache.set(id, { items, ts: Date.now() });
 			return items;
@@ -165,7 +207,9 @@ function pickCurrentConfig(): RepoConfig | null {
 		const wf = workspace.getWorkspaceFolder(ed.document.uri);
 		if (wf) {
 			for (const c of configByProject.values()) {
-				if (c.fsPath === wf.uri.fsPath) { return c; }
+				if (c.fsPath === wf.uri.fsPath) {
+					return c;
+				}
 			}
 		}
 	}
@@ -173,7 +217,9 @@ function pickCurrentConfig(): RepoConfig | null {
 }
 
 function updateStatusBar(): void {
-	if (!statusBar) { return; }
+	if (!statusBar) {
+		return;
+	}
 	const config = pickCurrentConfig();
 	if (!config) {
 		statusBar.text = '$(circle-slash) GitLab CI';
@@ -204,17 +250,24 @@ function checkFailure(pipeline: any, config: RepoConfig): void {
 	const id = pipeline.id;
 	const prev = lastStatusById.get(id);
 	lastStatusById.set(id, pipeline.status);
-	if (prev && prev !== pipeline.status) { jobsCache.delete(id); }   // status changed → job list is stale
-	if (!baselineDone) { return; }                 // don't notify for the initial snapshot
-	if (config.notifyOnFailed === false) { return; }
+	if (prev && prev !== pipeline.status) {
+		jobsCache.delete(id);
+	} // status changed → job list is stale
+	if (!baselineDone) {
+		return;
+	} // don't notify for the initial snapshot
+	if (config.notifyOnFailed === false) {
+		return;
+	}
 	if (pipeline.status === 'failed' && prev !== 'failed') {
 		const short = (config.project || '').split('/').slice(-1)[0];
-		window.showErrorMessage(
-			`❌ Pipeline #${pipeline.id} failed — ${short} (${pipeline.ref})`,
-			'Open in GitLab'
-		).then((choice) => {
-			if (choice && pipeline.web_url) { commands.executeCommand('vscode.open', Uri.parse(pipeline.web_url)); }
-		});
+		window
+			.showErrorMessage(`❌ Pipeline #${pipeline.id} failed — ${short} (${pipeline.ref})`, 'Open in GitLab')
+			.then((choice) => {
+				if (choice && pipeline.web_url) {
+					commands.executeCommand('vscode.open', Uri.parse(pipeline.web_url));
+				}
+			});
 	}
 }
 
@@ -232,8 +285,12 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 	const currentIds = new Set<number>();
 	for (const config of configs) {
 		configByProject.set(config.project, config);
-		let pipelines: any[] = [];
-		try { pipelines = await getRunningPipelines(config); } catch (e) { pipelines = []; }
+		let pipelines: any[];
+		try {
+			pipelines = await getRunningPipelines(config);
+		} catch (e) {
+			pipelines = [];
+		}
 		const items = pipelines.map((p: any) => {
 			currentIds.add(p.id);
 			pipelineConfigById.set(p.id, config);
@@ -247,8 +304,16 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 	pipelinesByRepo = newByRepo;
 	baselineDone = true;
 	// drop cache entries for pipelines that dropped out of the list
-	for (const id of jobsCache.keys()) { if (!currentIds.has(id)) { jobsCache.delete(id); } }
-	for (const id of lastStatusById.keys()) { if (!currentIds.has(id)) { lastStatusById.delete(id); } }
+	for (const id of jobsCache.keys()) {
+		if (!currentIds.has(id)) {
+			jobsCache.delete(id);
+		}
+	}
+	for (const id of lastStatusById.keys()) {
+		if (!currentIds.has(id)) {
+			lastStatusById.delete(id);
+		}
+	}
 	updateStatusBar();
 	provider.refresh();
 }
@@ -259,14 +324,24 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 
 export function revealCurrentRepo(views: TreeView<TreeItem>[]): void {
 	const ed = window.activeTextEditor;
-	if (!ed || !ed.document || !ed.document.uri) { return; }
+	if (!ed || !ed.document || !ed.document.uri) {
+		return;
+	}
 	const wf = workspace.getWorkspaceFolder(ed.document.uri);
-	if (!wf) { return; }
+	if (!wf) {
+		return;
+	}
 	const target = repoNodes.find((r) => r.fsPath === wf.uri.fsPath);
-	if (!target) { return; }
-	expandedRepos.add(target.project);   // remember it so it stays open across refreshes
+	if (!target) {
+		return;
+	}
+	expandedRepos.add(target.project); // remember it so it stays open across refreshes
 	for (const v of views) {
-		try { v.reveal(target, { expand: true, select: false, focus: false }); } catch (e) { /* ignore */ }
+		try {
+			v.reveal(target, { expand: true, select: false, focus: false });
+		} catch (e) {
+			/* ignore */
+		}
 	}
 	updateStatusBar();
 }

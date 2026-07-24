@@ -15,7 +15,10 @@ export function gitUrlParser(url: string): GitRemote {
 		const u = new URL(giturl);
 		return {
 			domain: u.hostname,
-			project: u.pathname.replace(/\.git$/, '').replace(/^\/+/, '').trim()
+			project: u.pathname
+				.replace(/\.git$/, '')
+				.replace(/^\/+/, '')
+				.trim()
 		};
 	} catch (e) {
 		return { domain: '', project: '' };

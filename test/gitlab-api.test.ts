@@ -32,10 +32,7 @@ test('buildRequestOptions preserves query strings in the path', () => {
 });
 
 test('apiRequest rejects when no token is configured', async () => {
-	await assert.rejects(
-		() => apiRequest(makeConfig({ token: null }), '/pipelines'),
-		/No token/
-	);
+	await assert.rejects(() => apiRequest(makeConfig({ token: null }), '/pipelines'), /No token/);
 });
 
 test('apiRequest parses a 2xx JSON body', async () => {
@@ -80,10 +77,7 @@ test('apiRequest rejects on a non-2xx response', async () => {
 	const { port } = server.address() as AddressInfo;
 	try {
 		const conf = makeConfig({ apiUrl: `http://127.0.0.1:${port}/api/v4` });
-		await assert.rejects(
-			() => apiRequest(conf, '/pipelines', 'GET', false, http.request),
-			/404/
-		);
+		await assert.rejects(() => apiRequest(conf, '/pipelines', 'GET', false, http.request), /404/);
 	} finally {
 		server.close();
 	}

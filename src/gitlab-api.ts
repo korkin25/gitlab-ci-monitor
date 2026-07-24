@@ -16,10 +16,7 @@ export interface RepoConfig {
 
 /** Minimal, injectable stand-in for `https.request` — lets tests drive the
  *  request/response cycle over plain `http` without a TLS handshake. */
-export type Transport = (
-	options: RequestOptions,
-	callback: (res: IncomingMessage) => void
-) => ClientRequest;
+export type Transport = (options: RequestOptions, callback: (res: IncomingMessage) => void) => ClientRequest;
 
 /** Build the URL and request options for a GitLab project endpoint. Pure and
  *  side-effect free, so the path/encoding logic can be unit-tested directly. */
@@ -31,7 +28,7 @@ export function buildRequestOptions(
 	const url = new URL(`${conf.apiUrl}/projects/${encodeURIComponent(conf.project)}${endpoint}`);
 	const options: RequestOptions = {
 		hostname: url.hostname,
-		port: url.port ? Number(url.port) : (url.protocol === 'http:' ? 80 : 443),
+		port: url.port ? Number(url.port) : url.protocol === 'http:' ? 80 : 443,
 		path: url.pathname + url.search,
 		method,
 		headers: { 'PRIVATE-TOKEN': conf.token || '' },
@@ -48,7 +45,9 @@ export function apiRequest(
 	transport: Transport = https.request
 ): Promise<any> {
 	return new Promise((resolve, reject) => {
-		if (!conf.token) { return reject(new Error(`No token for '${conf.domain}'`)); }
+		if (!conf.token) {
+			return reject(new Error(`No token for '${conf.domain}'`));
+		}
 		let options: RequestOptions;
 		try {
 			options = buildRequestOptions(conf, endpoint, method).options;
@@ -57,18 +56,28 @@ export function apiRequest(
 		}
 		const req = transport(options, (res) => {
 			let data = '';
-			res.on('data', (chunk) => { data += chunk; });
+			res.on('data', (chunk) => {
+				data += chunk;
+			});
 			res.on('end', () => {
 				const code = res.statusCode || 0;
 				if (code < 200 || code >= 300) {
 					return reject(new Error(`GitLab API ${code} for ${endpoint}`));
 				}
-				if (asText) { return resolve(data); }
-				try { resolve(data ? JSON.parse(data) : []); } catch (e) { resolve([]); }
+				if (asText) {
+					return resolve(data);
+				}
+				try {
+					resolve(data ? JSON.parse(data) : []);
+				} catch (e) {
+					resolve([]);
+				}
 			});
 		});
 		req.on('error', reject);
-		req.on('timeout', () => { req.destroy(new Error('request timeout')); });
+		req.on('timeout', () => {
+			req.destroy(new Error('request timeout'));
+		});
 		req.end();
 	});
 }
@@ -78,7 +87,9 @@ export function getRunningPipelines(conf: RepoConfig): Promise<any[]> {
 }
 
 export function getPipelineJobs(conf: RepoConfig, pipelineId: number): Promise<any[]> {
-	return apiRequest(conf, `/pipelines/${pipelineId}/jobs?per_page=100&page=1`).then((d) => (Array.isArray(d) ? d : []));
+	return apiRequest(conf, `/pipelines/${pipelineId}/jobs?per_page=100&page=1`).then((d) =>
+		Array.isArray(d) ? d : []
+	);
 }
 
 export function getJobTrace(conf: RepoConfig, jobId: number): Promise<string> {

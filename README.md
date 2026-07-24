@@ -61,8 +61,14 @@ The domain and project are derived from each repo's git remote, so one entry per
 ```bash
 npm install        # dev dependencies only — the extension has zero runtime deps
 npm run compile    # type-check and build the extension into out/
+npm run lint       # ESLint (flat config, typescript-eslint)
+npm run format     # apply Prettier;  npm run format:check verifies formatting
 npm test           # run the unit suite (node:test) — see test/
 ```
+
+CI (GitHub Actions) runs lint, format check, type-check, tests, and a dependency audit on
+every push. ESLint owns code quality and Prettier owns formatting (`eslint-config-prettier`
+keeps them from fighting).
 
 The pure, VS Code-independent logic (git-remote parsing, log cleaning, job ordering, the
 GitLab HTTP client) lives in dedicated modules and is covered by `npm test`; the runner is

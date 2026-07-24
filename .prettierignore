@@ -1,0 +1,8 @@
+node_modules
+out
+out-test
+*.vsix
+package-lock.json
+icon.png
+# Prose docs are hand-formatted (tables, changelog); keep Prettier off them.
+*.md

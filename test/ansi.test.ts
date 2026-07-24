@@ -11,10 +11,7 @@ test('normalises CRLF and lone CR to LF', () => {
 });
 
 test('removes GitLab section_start/section_end markers', () => {
-	assert.equal(
-		stripAnsi('before\nsection_end:1600000123:step_script\nafter\n'),
-		'before\n\nafter\n'
-	);
+	assert.equal(stripAnsi('before\nsection_end:1600000123:step_script\nafter\n'), 'before\n\nafter\n');
 });
 
 test('strips OSC sequences', () => {
