@@ -331,10 +331,7 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
  * still collapses it natively (no fight with the native toggle). The other panel
  * catches up on the next periodic refresh via `expandedRepos` → collapsibleState.
  */
-export function revealRepoInView(view: TreeView<TreeItem>, project: string): void {
-	if (!expansionChanges(expandedRepos, project, true)) {
-		return; // already expanded — let a native click collapse it
-	}
+function doReveal(view: TreeView<TreeItem>, project: string): void {
 	const target = repoNodes.find((r) => r.project === project);
 	if (!target) {
 		return;
@@ -344,6 +341,23 @@ export function revealRepoInView(view: TreeView<TreeItem>, project: string): voi
 		view.reveal(target, { expand: true, select: false, focus: false });
 	} catch (e) {
 		/* ignore */
+	}
+}
+
+export function revealRepoInView(view: TreeView<TreeItem>, project: string): void {
+	if (!expansionChanges(expandedRepos, project, true)) {
+		return; // already expanded — let a native click collapse it
+	}
+	doReveal(view, project);
+}
+
+// Expand the repo at `fsPath` (e.g. a git root) in the given view — always scroll
+// to and expand it. Used when a repository is selected in the built-in Source
+// Control view, so the matching project opens in our "Pipelines" panel.
+export function revealRepoByPath(view: TreeView<TreeItem>, fsPath: string): void {
+	const project = repoProjectForPath(repoNodes, fsPath);
+	if (project) {
+		doReveal(view, project);
 	}
 }
 

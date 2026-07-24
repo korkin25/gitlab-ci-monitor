@@ -7,15 +7,15 @@
   Latest: `GCM-6` — expanding a project (via file open or repo click) now expands it in
   both panels **in place**, without switching sidebars/focus (replaced `reveal()` with
   tree-model expansion; `GCM-5`'s reveal caused the focus jump). Shipped in `v0.3.1`.
-- **Latest:** `GCM-8` (`v0.3.3`) — expansion is now driven by `reveal()` called only on the
-  panel the click/active-file came from (already frontmost), so both Explorer and Source
-  Control expand on click with no sidebar jump. Removed the id-trick and the refresh-based
-  expansion of 0.3.1/0.3.2 (they fought VS Code's tree behavior). `revealRepoInView` +
-  `expandActiveEditorRepo` in `tree-view.ts`; selection handler in `extension.ts`.
-- **Verify:** in VS Code confirm (a) repo click in Source Control expands it, (b) file
-  click / repo click in Explorer expands it, (c) no sidebar jumps. Cross-panel auto-sync
-  (the *other* panel expanding too) is best-effort via the periodic refresh — report if it
-  matters and isn't happening.
+- **Latest:** `GCM-9` (`v0.3.4`) — selecting a repository in the **built-in** Source Control
+  view now expands that project in our "Pipelines" panel, via the Git extension API
+  (`repo.ui.selected` / `onDidChange`). `revealRepoByPath` in `tree-view.ts`;
+  `wireBuiltInScmSelection` in `extension.ts`. (GCM-8/v0.3.3 fixed clicks inside our own
+  panels + no sidebar jump.)
+- **Verify:** in VS Code confirm clicking a repo in the built-in Source Control list expands
+  the matching project in "Pipelines". Note: the Git extension's `ui.onDidChange` had a
+  historical bug (microsoft/vscode#72224) where it might not fire on selection change in some
+  versions — if it does nothing, report the VS Code version.
 - **Release:** `v0.3.0` is the current release (adds `GCM-5`). The tag triggers
   `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
   Release; install via **Extensions: Install from VSIX…**. Marketplace/Open VSX publish

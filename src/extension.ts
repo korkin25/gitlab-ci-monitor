@@ -1,10 +1,21 @@
-import { window, commands, workspace, Uri, ExtensionContext, TreeView, TreeItem, EventEmitter } from 'vscode';
+import {
+	window,
+	commands,
+	workspace,
+	extensions,
+	Uri,
+	ExtensionContext,
+	TreeView,
+	TreeItem,
+	EventEmitter
+} from 'vscode';
 import {
 	TreeViewProvider,
 	updateAllPipelinesStatus,
 	initStatusBar,
 	expandActiveEditorRepo,
 	revealRepoInView,
+	revealRepoByPath,
 	getConfigForPipeline,
 	getConfigForProject,
 	setRepoExpanded
@@ -148,6 +159,9 @@ export async function activate(context: ExtensionContext) {
 	// follow the active editor: expand its repo group and refresh the status bar
 	context.subscriptions.push(window.onDidChangeActiveTextEditor(() => expandActiveEditorRepo(explorerView)));
 
+	// selecting a repo in the built-in Source Control view expands it in "Pipelines"
+	wireBuiltInScmSelection(context, scmView);
+
 	// --- secure token storage (VS Code SecretStorage) -----------------------
 	const tokenStore = new TokenStore(context.secrets);
 	setTokenStore(tokenStore);
@@ -250,4 +264,42 @@ export async function activate(context: ExtensionContext) {
 
 export function deactivate() {
 	/* noop */
+}
+
+/**
+ * Expand the matching project in our "Pipelines" panel when the user selects a
+ * repository in the built-in Source Control view. Uses the Git extension's
+ * RepositoryUIState (`repo.ui.selected` + `repo.ui.onDidChange`). No-op if the
+ * Git extension is unavailable or the API shape is not what we expect.
+ */
+async function wireBuiltInScmSelection(context: ExtensionContext, scmView: TreeView<TreeItem>): Promise<void> {
+	const gitExt = extensions.getExtension('vscode.git');
+	if (!gitExt) {
+		return;
+	}
+	let git: any;
+	try {
+		const exps = gitExt.isActive ? gitExt.exports : await gitExt.activate();
+		git = exps.getAPI(1);
+	} catch (e) {
+		return;
+	}
+	const attach = (repo: any) => {
+		if (!repo || !repo.ui || !repo.rootUri || typeof repo.ui.onDidChange !== 'function') {
+			return;
+		}
+		context.subscriptions.push(
+			repo.ui.onDidChange(() => {
+				if (repo.ui.selected) {
+					revealRepoByPath(scmView, repo.rootUri.fsPath);
+				}
+			})
+		);
+	};
+	for (const repo of git.repositories || []) {
+		attach(repo);
+	}
+	if (typeof git.onDidOpenRepository === 'function') {
+		context.subscriptions.push(git.onDidOpenRepository((repo: any) => attach(repo)));
+	}
 }

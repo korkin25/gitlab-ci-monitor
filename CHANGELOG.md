@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.3.4] — 2026-07-24
+
+### Added
+- **Selecting a repository in the built-in Source Control view expands it in "Pipelines".** Clicking a repo in VS Code's own Source Control repository list now scrolls to and expands that project in our Pipelines panel (same sidebar, no focus jump). Uses the Git extension's `repo.ui.selected` / `onDidChange`; a no-op if the Git extension is unavailable. (GCM-9)
+
 ## [0.3.3] — 2026-07-24
 
 ### Fixed
