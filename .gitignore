@@ -2,6 +2,10 @@ out
 out-test
 dist
 node_modules
+
+# compiled test output must never live next to the .ts sources
+test/**/*.js
+test/**/*.js.map
 .vscode-test/
 *.vsix
 .claude/settings.local.json
