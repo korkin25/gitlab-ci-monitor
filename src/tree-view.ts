@@ -17,6 +17,7 @@ import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs } from 
 import { orderJobs } from './job-order';
 import { repoProjectForPath, expansionChanges } from './expansion';
 import { latestFailedByRef } from './notify';
+import { pipelinesSignature } from './signature';
 
 // ---------------------------------------------------------------------------
 // module state
@@ -37,6 +38,10 @@ const jobsCache: Map<number, { items: any[]; ts: number }> = new Map();
 const JOBS_TTL_RUNNING = 4000;
 const JOBS_TTL_DONE = 10 * 60 * 1000;
 let baselineDone = false;
+// signature of the last rendered pipeline data — the tree is only refreshed when
+// this changes, so nothing re-renders (and expanded jobs stay cached) while the
+// pipelines are unchanged.
+let lastSignature: string | null = null;
 let currentConfig: RepoConfig | null = null;
 let statusBar: StatusBarItem | undefined;
 // which repo groups are expanded — persisted across refreshes so a group the user
@@ -299,6 +304,7 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 	const newRepoNodes: any[] = [];
 	const newByRepo = new Map<string, any[]>();
 	const currentIds = new Set<number>();
+	const sigParts: string[] = [];
 	for (const config of configs) {
 		configByProject.set(config.project, config);
 		let pipelines: any[];
@@ -316,6 +322,7 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 		notifyFailures(config, pipelines, baselineDone);
 		newByRepo.set(config.project, items);
 		newRepoNodes.push(createRepoNode(config, items.length));
+		sigParts.push(`${config.project}@${config.currentBranch}#${pipelinesSignature(pipelines)}`);
 	}
 	repoNodes = newRepoNodes;
 	pipelinesByRepo = newByRepo;
@@ -338,7 +345,13 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 		}
 	}
 	updateStatusBar();
-	provider.refresh();
+	// only re-render when the pipeline data actually changed — otherwise the tree
+	// (and any expanded, cached jobs) stays put instead of flickering every poll.
+	const signature = sigParts.join('|');
+	if (lastSignature !== signature) {
+		lastSignature = signature;
+		provider.refresh();
+	}
 }
 
 // ---------------------------------------------------------------------------

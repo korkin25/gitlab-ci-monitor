@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.4.1] — 2026-07-24
+
+### Fixed
+- **Smoother tree — no more re-render on every poll.** The tree is now refreshed only when the pipeline data actually changes (a `id:status:ref` signature per project), instead of rebuilding the whole tree every few seconds. Expanded pipelines keep their cached jobs and no longer flicker/re-fetch while nothing has changed. (GCM-12)
+
+### Notes
+- While a pipeline stays `running`, its row/jobs update on the next status change (or when you re-expand it) rather than on every poll — the trade-off for removing the constant re-render. Ask if you want live per-job progress for running pipelines back (done smoothly).
+
 ## [0.4.0] — 2026-07-24
 
 ### Changed

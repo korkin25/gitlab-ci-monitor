@@ -16,8 +16,12 @@
   project stays expanded in "Pipelines"). `GCM-11` (`v0.4.0`) — smarter failure notifications:
   notify only when the failure is the branch's latest pipeline, once per `project|ref`
   (`latestFailedByRef` in `src/notify.ts` + `notifiedFailureByRef` map).
-- **Verify (UI, pending):** accordion in built-in Source Control; and that a failed pipeline
-  notifies once, only when it's the latest on the branch (a newer green run suppresses it).
+- **Also:** `GCM-12` (`v0.4.1`) — tree refreshes only when pipeline data changes
+  (`pipelinesSignature` in `src/signature.ts` + `lastSignature` gate), so it stops
+  re-rendering/re-fetching expanded jobs every poll. Trade-off: running pipelines update on
+  status change, not every second (offer live per-job mode via node memoization if asked).
+- **Verify (UI, pending):** accordion in built-in Source Control; smart failure notifications;
+  and that expanding jobs is now smooth/cached (not jerky).
 - **Release:** `v0.3.0` is the current release (adds `GCM-5`). The tag triggers
   `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
   Release; install via **Extensions: Install from VSIX…**. Marketplace/Open VSX publish
