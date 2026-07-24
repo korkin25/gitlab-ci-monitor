@@ -3,7 +3,8 @@ import {
 	TreeViewProvider,
 	updateAllPipelinesStatus,
 	initStatusBar,
-	expandCurrentRepo,
+	expandActiveEditorRepo,
+	revealRepoInView,
 	getConfigForPipeline,
 	getConfigForProject,
 	setRepoExpanded
@@ -33,12 +34,8 @@ export async function activate(context: ExtensionContext) {
 	const views: TreeView<TreeItem>[] = [explorerView, scmView];
 	context.subscriptions.push(explorerView, scmView);
 
-	// Only remember which repos the user expands/collapses — do NOT rebuild or
-	// refresh here. Rebuilding mid-click would replace the very node the user is
-	// expanding and cancel the native expand/collapse (this is what stopped repo
-	// clicks working in the Source Control panel). The other panel and the
-	// persisted state catch up on the next periodic refresh.
 	for (const v of views) {
+		// Remember expand/collapse so it persists across the periodic refresh.
 		context.subscriptions.push(
 			v.onDidExpandElement((e: any) => {
 				if (e.element && e.element.isRepoNode) {
@@ -50,6 +47,18 @@ export async function activate(context: ExtensionContext) {
 			v.onDidCollapseElement((e: any) => {
 				if (e.element && e.element.isRepoNode) {
 					setRepoExpanded(e.element.project, false);
+				}
+			})
+		);
+		// Clicking a repo selects it — expand it in the SAME panel via reveal().
+		// Revealing only in the panel the click came from (already frontmost)
+		// means the sidebar never jumps. Guarded so it only expands (a second
+		// click on the selected repo still collapses it natively).
+		context.subscriptions.push(
+			v.onDidChangeSelection((e: any) => {
+				const node = e.selection && e.selection[0];
+				if (node && node.isRepoNode) {
+					revealRepoInView(v, node.project);
 				}
 			})
 		);
@@ -137,7 +146,7 @@ export async function activate(context: ExtensionContext) {
 	);
 
 	// follow the active editor: expand its repo group and refresh the status bar
-	context.subscriptions.push(window.onDidChangeActiveTextEditor(() => expandCurrentRepo(provider)));
+	context.subscriptions.push(window.onDidChangeActiveTextEditor(() => expandActiveEditorRepo(explorerView)));
 
 	// --- secure token storage (VS Code SecretStorage) -----------------------
 	const tokenStore = new TokenStore(context.secrets);
@@ -233,7 +242,7 @@ export async function activate(context: ExtensionContext) {
 	context.subscriptions.push({ dispose: () => clearInterval(tid) });
 
 	updateAllPipelinesStatus(provider)
-		.then(() => expandCurrentRepo(provider))
+		.then(() => expandActiveEditorRepo(explorerView))
 		.catch(() => {
 			/* ignore */
 		});

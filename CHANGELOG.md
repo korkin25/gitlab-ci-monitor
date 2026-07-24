@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.3.3] — 2026-07-24
+
+### Fixed
+- **Clicking a repository expands it in whichever panel you clicked — Explorer or Source Control — without the sidebar jumping.** Expansion is now driven by `reveal()` called *only* on the panel the click (or active file) came from, which is already frontmost, so focus never moves to the other sidebar. This fixes repo clicks in the Source Control "Pipelines" panel doing nothing, and keeps the Explorer panel working. Supersedes the 0.3.1/0.3.2 attempts, which fought VS Code's tree-refresh behavior. (GCM-8)
+
 ## [0.3.2] — 2026-07-24
 
 ### Fixed

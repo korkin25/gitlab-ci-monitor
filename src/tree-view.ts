@@ -10,7 +10,8 @@ import {
 	commands,
 	Uri,
 	StatusBarAlignment,
-	StatusBarItem
+	StatusBarItem,
+	TreeView
 } from 'vscode';
 import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs } from './pipelines';
 import { orderJobs } from './job-order';
@@ -81,17 +82,15 @@ const STATUS_CODICON: { [k: string]: string } = {
 
 function createRepoNode(config: RepoConfig, count: number): any {
 	const short = (config.project || '').split('/').filter(Boolean).slice(-1)[0] || config.project;
-	const expanded = expandedRepos.has(config.project);
 	return {
-		// Encode the expansion state in the id: when it flips, VS Code sees a new
-		// node and applies the fresh collapsibleState, so a refresh reliably
-		// expands/collapses the repo in place — no reveal(), no sidebar jump.
-		id: `repo:${config.project}:${expanded ? 'x' : 'c'}`,
+		id: `repo:${config.project}`,
 		isRepoNode: true,
 		project: config.project,
 		fsPath: config.fsPath,
 		label: `📦 ${short} · ${config.currentBranch || ''} (${count})`,
-		collapsibleState: expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
+		collapsibleState: expandedRepos.has(config.project)
+			? TreeItemCollapsibleState.Expanded
+			: TreeItemCollapsibleState.Collapsed,
 		tooltip: config.project
 	};
 }
@@ -321,44 +320,44 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 }
 
 // ---------------------------------------------------------------------------
-// expansion (no reveal — the sidebar/focus must never jump)
+// expansion via reveal() — but only in the panel the user is already in
 // ---------------------------------------------------------------------------
 
-// Rebuild the repo node objects from the last-fetched data so their
-// collapsibleState reflects the current `expandedRepos`. VS Code applies
-// collapsibleState on every refresh, so this expands/collapses a repo in both
-// panels in place, without a reveal() (which would force its container to show).
-function rebuildRepoNodes(): void {
-	repoNodes = Array.from(configByProject.values()).map((config) =>
-		createRepoNode(config, (pipelinesByRepo.get(config.project) || []).length)
-	);
-}
-
 /**
- * Expand or collapse a repo across both panels without moving focus. Rebuilds the
- * nodes with the new collapsibleState and fires a tree refresh; no reveal(), so
- * neither the Explorer nor the Source Control sidebar is forced to the front.
- * A no-op when the repo is already in the requested state (also swallows the echo
- * events a programmatic refresh can produce).
+ * Expand and reveal a repo in ONE view. reveal() reliably expands the node, and
+ * because we only ever call it on the view whose container is already frontmost
+ * (the panel the click / active editor came from), the sidebar never jumps.
+ * Only acts when the repo is currently collapsed, so clicking an expanded repo
+ * still collapses it natively (no fight with the native toggle). The other panel
+ * catches up on the next periodic refresh via `expandedRepos` → collapsibleState.
  */
-export function applyRepoExpansion(provider: TreeViewProvider, project: string, expanded: boolean): void {
-	if (!expansionChanges(expandedRepos, project, expanded)) {
+export function revealRepoInView(view: TreeView<TreeItem>, project: string): void {
+	if (!expansionChanges(expandedRepos, project, true)) {
+		return; // already expanded — let a native click collapse it
+	}
+	const target = repoNodes.find((r) => r.project === project);
+	if (!target) {
 		return;
 	}
-	setRepoExpanded(project, expanded);
-	rebuildRepoNodes();
-	provider.refresh();
+	expandedRepos.add(project); // persist across the periodic refresh
+	try {
+		view.reveal(target, { expand: true, select: false, focus: false });
+	} catch (e) {
+		/* ignore */
+	}
 }
 
-// Expand the repo of the active editor in place (no focus change).
-export function expandCurrentRepo(provider: TreeViewProvider): void {
+// Expand the active editor's repo in the Explorer panel (where files live), so
+// opening a file expands its project. Only when that panel is actually visible,
+// so switching files never pulls focus to it from another sidebar.
+export function expandActiveEditorRepo(explorerView: TreeView<TreeItem>): void {
 	const ed = window.activeTextEditor;
-	if (ed && ed.document && ed.document.uri) {
+	if (ed && ed.document && ed.document.uri && explorerView.visible) {
 		const wf = workspace.getWorkspaceFolder(ed.document.uri);
 		if (wf) {
 			const project = repoProjectForPath(repoNodes, wf.uri.fsPath);
 			if (project) {
-				applyRepoExpansion(provider, project, true);
+				revealRepoInView(explorerView, project);
 			}
 		}
 	}

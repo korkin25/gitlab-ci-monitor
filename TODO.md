@@ -7,14 +7,15 @@
   Latest: `GCM-6` — expanding a project (via file open or repo click) now expands it in
   both panels **in place**, without switching sidebars/focus (replaced `reveal()` with
   tree-model expansion; `GCM-5`'s reveal caused the focus jump). Shipped in `v0.3.1`.
-- **Latest:** `GCM-7` (`v0.3.2`) — clicking a repo node in the Source Control "Pipelines"
-  panel now expands it. The native expand/collapse handlers no longer rebuild/refresh the
-  tree mid-click (that replaced the node being expanded and cancelled it); they only record
-  state now. Explorer (file-click path) unchanged.
-- **Verify:** confirm in VS Code that (a) clicking a repo in Source Control expands it, and
-  (b) Explorer still works. Watch for a possible one-off collapse of an expanded pipeline
-  within ~5s of expanding a repo (repo node id flips on the next periodic refresh); report
-  if noticeable and it can be removed.
+- **Latest:** `GCM-8` (`v0.3.3`) — expansion is now driven by `reveal()` called only on the
+  panel the click/active-file came from (already frontmost), so both Explorer and Source
+  Control expand on click with no sidebar jump. Removed the id-trick and the refresh-based
+  expansion of 0.3.1/0.3.2 (they fought VS Code's tree behavior). `revealRepoInView` +
+  `expandActiveEditorRepo` in `tree-view.ts`; selection handler in `extension.ts`.
+- **Verify:** in VS Code confirm (a) repo click in Source Control expands it, (b) file
+  click / repo click in Explorer expands it, (c) no sidebar jumps. Cross-panel auto-sync
+  (the *other* panel expanding too) is best-effort via the periodic refresh — report if it
+  matters and isn't happening.
 - **Release:** `v0.3.0` is the current release (adds `GCM-5`). The tag triggers
   `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
   Release; install via **Extensions: Install from VSIX…**. Marketplace/Open VSX publish
