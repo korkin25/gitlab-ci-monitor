@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- CI: move GitHub Actions to the current majors (`actions/checkout@v7`, `actions/setup-node@v7`, `actions/upload-artifact@v7`) — clears the last Node 20 runtime deprecation warning.
 
 ## [0.3.0] — 2026-07-24
 
