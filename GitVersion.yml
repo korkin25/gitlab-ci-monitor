@@ -1,0 +1,45 @@
+---
+# GitVersion — the single source of the version (image, chart, package/extension).
+# Branching model: feature/* -> dev -> rc -> release. No `main` branch, NO git tags.
+#
+# This is a clean GitVersion 6.x config. (An older "5.x-style" config breaks with a
+# `next-version` under GitVersion 6.8+: "Failed to parse X into a Semantic Version".
+# That is why it was rewritten from scratch — keep it minimal and 6.x-native.)
+#
+# Per branch the release.yml picks the right variable:
+#   rc       -> SemVer          e.g. 0.1.0-rc.8   (pre-release publish)
+#   release  -> MajorMinorPatch e.g. 0.1.0        (clean, stable publish)
+#
+# THE ONE VERSION KNOB is `next-version`. There are no tags, so bump it to cut a new
+# minor/major, then merge dev -> rc -> release.
+mode: ContinuousDelivery
+next-version: 0.1.0
+
+branches:
+    dev:
+        regex: ^(origin/)?dev(elop)?(ment)?$
+        label: dev
+        increment: Patch
+        is-main-branch: true
+        source-branches: [feature, hotfix]
+    rc:
+        regex: ^(origin/)?rc$
+        label: rc
+        increment: Minor
+        source-branches: [dev]
+    release:
+        regex: ^(origin/)?release$
+        label: ''
+        increment: Patch
+        is-release-branch: true
+        source-branches: [rc, dev]
+    feature:
+        regex: ^(origin/)?features?[-/]
+        label: alpha
+        increment: Inherit
+        source-branches: [dev]
+    hotfix:
+        regex: ^(origin/)?hotfix(es)?[-/]
+        label: hotfix
+        increment: Patch
+        source-branches: [dev, release]

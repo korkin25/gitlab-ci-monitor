@@ -1,16 +1,20 @@
 # CI for the gitlab-ci-monitor VS Code extension.
 #
-# Two layers:
-#   sast  — REUSES the language-agnostic security gates from the public
-#           korkin25/open-ci-actions@v1 (gitleaks, semgrep, checkov, trivy-config).
-#           has-python/has-dockerfile are false: the Python- and Dockerfile-only
-#           jobs inside sast.yml skip themselves. New shared CI logic belongs there.
-#   node  — BESPOKE Node/TypeScript gates (open-ci-actions has no Node workflow yet):
-#           eslint, prettier --check, tsc typecheck, node --test, and a `vsce package`
-#           smoke that proves the .vsix builds. If a second Node project appears,
-#           promote these into open-ci-actions rather than copying them.
+# Three layers:
+#   version — REUSES korkin25/open-ci-actions@v1 gitversion to prove the repo's
+#             GitVersion.yml parses and computes a SemVer on every push/PR (the
+#             version source release.yml depends on). Needs a full-history checkout.
+#   sast    — REUSES the language-agnostic security gates from the public
+#             korkin25/open-ci-actions@v1 (gitleaks, semgrep, checkov, trivy-config).
+#             has-python/has-dockerfile are false: the Python- and Dockerfile-only
+#             jobs inside sast.yml skip themselves. New shared CI logic belongs there.
+#   node    — BESPOKE Node/TypeScript gates (open-ci-actions has no Node workflow yet):
+#             eslint, prettier --check, tsc typecheck, node --test, and a `vsce package`
+#             smoke that proves the .vsix builds. If a second Node project appears,
+#             promote these into open-ci-actions rather than copying them.
 #
-# Publishing is NOT here — a `v*.*.*` tag triggers the vendored release.yml.
+# Publishing is NOT here — a merge to `rc` (pre-release) or `release` (stable)
+# triggers the vendored release.yml (no tags; version from GitVersion).
 name: CI
 
 on:
@@ -28,6 +32,20 @@ concurrency:
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+    # Prove the version source (GitVersion.yml) parses and computes a SemVer on
+    # every push/PR — the same number release.yml publishes on a merge to rc/release.
+    version:
+        name: Version
+        runs-on: ubuntu-latest
+        outputs:
+            semver: ${{ steps.gitversion.outputs.semver }}
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0 # required: GitVersion needs the full history
+            - id: gitversion
+              uses: korkin25/open-ci-actions/actions/gitversion@v1
+
     # Language-agnostic security gates, reused from open-ci-actions.
     sast:
         name: SAST

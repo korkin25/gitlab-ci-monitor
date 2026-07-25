@@ -1,18 +1,42 @@
+# Release — vendored, canonical for the standard (VS Code extension variant).
+#
+# NO TAGS. A merge into `rc` or `release` IS the release:
+#   * merge to `rc`      -> pre-release publish  (vsce/ovsx publish --pre-release)
+#   * merge to `release` -> stable publish       (vsce/ovsx publish)
+# The version comes entirely from GitVersion (the single source — GitVersion.yml,
+# knob `next-version`). No version is hardcoded and no git tag is ever created;
+# release.yml sets package.json from GitVersion at publish time via `npm version`.
+#
+# VERSIONING CONVENTION. Marketplace versions must be plain X.Y.Z — a `-rc.N` SemVer
+# suffix is NOT accepted by the VS Code Marketplace. Pre-releases therefore publish a
+# *distinct, increasing* X.Y.Z with the `--pre-release` flag rather than a SemVer
+# pre-release suffix:
+#   * release: V = majorMinorPatch                    (e.g. 0.5.0), stable
+#   * rc:      V = <major>.<minor>.<preReleaseNumber> (e.g. 0.5.8), --pre-release
+# Future refinement: Microsoft recommends reserving ODD minor numbers for pre-releases
+# and EVEN minors for stable, so the two streams never collide on a version — adopt
+# that when the release cadence needs it. See
+# https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions
+#
+# Publishing is opt-in: each marketplace step runs only when its token secret is set
+# (VSCE_PAT for the VS Code Marketplace, OVSX_PAT for Open VSX).
 name: Release
 
-# A SemVer tag (v1.2.3) triggers the release: the full quality gate runs, a .vsix
-# is built and attached to a GitHub Release, and — only when the matching token
-# secret is configured — the extension is published to the marketplaces.
 on:
     push:
-        tags:
-            - 'v*.*.*'
+        branches: [rc, release]
+    workflow_dispatch:
 
 permissions:
-    contents: write # create the GitHub Release and upload the .vsix asset
+    contents: read
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
 
 jobs:
     release:
+        name: Build & publish the extension
         runs-on: ubuntu-latest
         env:
             VSCE_PAT: ${{ secrets.VSCE_PAT }}
@@ -20,6 +44,37 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0 # GitVersion needs full history
+
+            - name: Install GitVersion
+              uses: gittools/actions/gitversion/setup@v3
+              with:
+                  versionSpec: '6.x' # latest GitVersion 6.x
+
+            - name: Determine version (GitVersion)
+              id: gv
+              uses: gittools/actions/gitversion/execute@v3
+
+            - name: Resolve the publish version (rc = pre-release, release = clean)
+              id: ver
+              env:
+                  MAJOR: ${{ steps.gv.outputs.major }}
+                  MINOR: ${{ steps.gv.outputs.minor }}
+                  MMP: ${{ steps.gv.outputs.majorMinorPatch }}
+                  PRE: ${{ steps.gv.outputs.preReleaseNumber }}
+              run: |
+                  set -euo pipefail
+                  if [ "${{ github.ref_name }}" = "release" ]; then
+                    V="$MMP"                       # clean X.Y.Z, stable
+                    PRERELEASE=false
+                  else
+                    V="${MAJOR}.${MINOR}.${PRE}"   # distinct increasing X.Y.Z for --pre-release
+                    PRERELEASE=true
+                  fi
+                  echo "version=$V" >> "$GITHUB_OUTPUT"
+                  echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+                  echo "Publishing $V from '${{ github.ref_name }}' (pre-release=$PRERELEASE)"
 
             - name: Set up Node.js
               uses: actions/setup-node@v7
@@ -30,57 +85,47 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
-            - name: Verify tag matches package.json version
-              run: |
-                  TAG="${GITHUB_REF_NAME#v}"
-                  PKG="$(node -p "require('./package.json').version")"
-                  if [ "$TAG" != "$PKG" ]; then
-                    echo "::error::Tag v$TAG does not match package.json version $PKG" >&2
-                    exit 1
-                  fi
-
-            - name: Quality gate (lint, format, compile, test)
-              run: |
-                  npm run lint
-                  npm run format:check
-                  npm run compile
-                  npm test
+            - name: Set package.json version from GitVersion (no git tag)
+              run: npm version "${{ steps.ver.outputs.version }}" --no-git-tag-version --allow-same-version
 
             - name: Package VSIX
               run: |
-                  npx --yes @vscode/vsce package --no-dependencies
-                  echo "VSIX=$(ls *.vsix)" >> "$GITHUB_ENV"
+                  npm run package
+                  echo "VSIX=$(ls -- *.vsix)" >> "$GITHUB_ENV"
 
             - name: Upload VSIX artifact
-              uses: actions/upload-artifact@v7
+              uses: actions/upload-artifact@v4
               with:
                   name: ${{ env.VSIX }}
                   path: ${{ env.VSIX }}
-
-            - name: Create GitHub Release
-              env:
-                  GH_TOKEN: ${{ github.token }}
-              run: |
-                  cat > release-notes.md <<EOF
-                  ### Install
-
-                  Download **$VSIX** from the assets below, then in VS Code either:
-
-                  - open the Command Palette and run **Extensions: Install from VSIX…**, then pick the file, or
-                  - run \`code --install-extension $VSIX\` from a terminal.
-
-                  **What's new:** see the [CHANGELOG](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/CHANGELOG.md).
-                  EOF
-                  gh release create "$GITHUB_REF_NAME" "$VSIX" \
-                    --title "$GITHUB_REF_NAME" \
-                    --notes-file release-notes.md \
-                    --generate-notes
+                  if-no-files-found: error
 
             # Publishing is opt-in: each step runs only when its token secret is set.
+            # vsce repackages from source at publish time (its recommended --pre-release
+            # flow); the uploaded .vsix above is for manual install / record.
             - name: Publish to VS Code Marketplace
               if: ${{ env.VSCE_PAT != '' }}
-              run: npx --yes @vscode/vsce publish --no-dependencies --packagePath "$VSIX"
+              run: |
+                  if [ "${{ steps.ver.outputs.prerelease }}" = 'true' ]; then
+                    npx --yes @vscode/vsce publish --pre-release --no-dependencies -p "$VSCE_PAT"
+                  else
+                    npx --yes @vscode/vsce publish --no-dependencies -p "$VSCE_PAT"
+                  fi
 
+            - name: Skip VS Code Marketplace publish (no token)
+              if: ${{ env.VSCE_PAT == '' }}
+              run: echo "VSCE_PAT not set — skipping marketplace publish"
+
+            # ovsx publishes the already-built .vsix (the proven form for this repo).
             - name: Publish to Open VSX
               if: ${{ env.OVSX_PAT != '' }}
-              run: npx --yes ovsx publish "$VSIX" -p "$OVSX_PAT"
+              run: |
+                  if [ "${{ steps.ver.outputs.prerelease }}" = 'true' ]; then
+                    npx --yes ovsx publish "$VSIX" --pre-release -p "$OVSX_PAT"
+                  else
+                    npx --yes ovsx publish "$VSIX" -p "$OVSX_PAT"
+                  fi
+
+            - name: Skip Open VSX publish (no token)
+              if: ${{ env.OVSX_PAT == '' }}
+              run: echo "OVSX_PAT not set — skipping Open VSX publish"
