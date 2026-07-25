@@ -65,6 +65,7 @@ TypeScript (strict), compiled with `tsc` to `out/`, and packaged/published with
   **Planned** · **Brainstorm** (ideas) · **Delivered**.
 - A new idea from the user lands here first (as Brainstorm or Planned) before it becomes
   a task (`GCM-<n>`) in `TODO.md`.
+- `Features.md` lists **only user-facing product features** — what the software does for its users. **Never** put engineering/infra tasks there (deployment, CI/CD, release, versioning, tooling, refactors, governance) — those live in `TODO.md`/`CHANGELOG.md`. Remove any such entry from `Features.md`.
 
 ## Documentation sync (apply without being asked)
 
@@ -91,7 +92,9 @@ Keep the docs in lockstep with the code, **in the same change** — never wait t
 - **(a) Fully automated** — unit tests (`node --test` over `out-test/`) plus eslint,
   prettier and `tsc` typecheck, and the `vsce package` smoke. Run in GitHub Actions CI on
   every push/PR. Claude **must read and analyze the CI run logs** (`gh run view --log`) for
-  every run — **even when the job is green**.
+  every run — **even when the job is green**. When a run fails, **quote the actual failing
+  log fragment back to the user** (the real error lines, not just a paraphrase) so a human can
+  follow the diagnosis — then explain the cause and fix.
 - **(b) Dev-machine / Extension Host** — behavior that needs a running VS Code and a real
   GitLab instance/token: launch the Extension Development Host (F5), exercise the tree in
   both panels, the status-bar indicator, retry/cancel, and failure notifications against a
@@ -114,23 +117,45 @@ Keep the docs in lockstep with the code, **in the same change** — never wait t
   until CI is green. After a release, Claude re-runs group-(b); any group-(c) tests →
   methodology handed to the user.
 
-## Versioning (package.json is the source of truth)
+## Versioning & releasing (auto-generated — never hardcode, no tags)
 
-A VS Code extension's version lives in **`package.json`** (SemVer) — the marketplace and the
-`.vsix` require it there, so that is the single source of truth (unlike the sibling Python
-repos, which use GitVersion). Rules:
+**One source of truth: GitVersion** (`GitVersion.yml`). It computes the SemVer for the
+published extension (the `.vsix` and the marketplace version) from the branch graph — nothing
+is hand-written. Branch model: `feature/*` (`-alpha`) → `dev` (`-dev`) → `rc` (`-rc`) →
+`release` (clean `X.Y.Z`). **There is no `main` branch, and there are no git tags.**
 
-- **Bump `package.json` `version` deliberately** as part of the change that warrants a
-  release (Keep-a-Changelog under `## [Unreleased]` becomes the release notes).
-- **The release tag must equal `package.json`** — `release.yml` verifies `vX.Y.Z` matches
-  and fails otherwise. Cut the tag from `release`.
-- When you must state the current version in docs, read it from `package.json`
-  (`node -p "require('./package.json').version"`), never hand-copy a number that will go stale.
+- **The one knob is `next-version` in `GitVersion.yml`.** It sets the target release number. To
+  cut a new minor/major, bump `next-version`; patches increment automatically on `release`.
+- **Never hand-write a version** — not in `package.json`, not in docs. `release.yml` injects the
+  GitVersion number into `package.json` at publish time
+  (`npm version <v> --no-git-tag-version --allow-same-version`); leave `package.json` `version`
+  as-is between releases. When you must state the version in docs, read it from CI's GitVersion
+  output or `docker run --rm -v "$PWD:/repo" gittools/gitversion:6.8.2 /repo /showvariable SemVer`.
+- **Uses the latest GitVersion 6.x** — the config must be 6.x-native (a 5.x-style config with
+  `next-version` fails to parse under 6.8+).
+
+**Releasing is a merge, not a tag.** `release.yml` runs `on: push: branches: [rc, release]` — a
+merge into either branch IS a release:
+
+- merge to **`rc`** → a **pre-release** publish (`vsce publish --pre-release`, and
+  `ovsx publish --pre-release`). The VS Code Marketplace rejects a `-rc.N` SemVer suffix, so the
+  version is a distinct, increasing plain `X.Y.Z` = `<major>.<minor>.<preReleaseNumber>`
+  (e.g. `0.5.8`) carried by the `--pre-release` flag. (Future refinement: Microsoft's
+  odd-minor-for-pre-release / even-minor-for-stable guidance.)
+- merge to **`release`** → the **stable** publish (clean `X.Y.Z` from GitVersion's
+  `majorMinorPatch`; `vsce publish` / `ovsx publish`, no flag).
+
+To cut a new number, bump `next-version`; then merge `dev` → `rc` → `release` (approval-gated).
+`ci.yml` never publishes the extension.
+
+Publishing to the marketplaces is **opt-in** — each publish step runs only when its token secret
+is set: `VSCE_PAT` (VS Code Marketplace) and `OVSX_PAT` (Open VSX). Without them the release job
+still builds and uploads the `.vsix` artifact and skips the marketplace publish.
 
 ## Build, artifacts & CI (apply without being asked)
 
-CI (GitHub Actions) is the single quality pipeline; a SemVer tag `vX.Y.Z` publishes the
-release artifacts (`.github/workflows/release.yml`).
+CI (GitHub Actions) is the single quality pipeline; a merge into `rc` or `release` publishes
+the release artifacts (`.github/workflows/release.yml`) — no tags (see *Versioning & releasing*).
 
 **Composition + bespoke.** `.github/workflows/ci.yml` reuses the language-agnostic security
 gates from the public
@@ -139,13 +164,16 @@ gates from the public
 (eslint, prettier `--check`, `tsc` typecheck, `node --test`, and a `vsce package` smoke that
 proves the `.vsix` builds). open-ci-actions has no Node workflow yet, so those jobs live here;
 **if a second Node project appears, promote them into open-ci-actions** rather than copying.
-PyPI/GitVersion parts of the standard do not apply (this is a marketplace extension).
+The PyPI-Trusted-Publishing part of the standard does not apply (this is a marketplace
+extension), but GitVersion does — the version is computed, never hardcoded (see *Versioning &
+releasing*).
 
 **Published artifacts:**
 
-- `.vsix` → attached to a GitHub Release and published to the **VS Code Marketplace** +
-  **OpenVSX** via `@vscode/vsce` / `ovsx` on a `v*.*.*` tag (needs `VSCE_PAT` / `OVSX_PAT`).
-- Nothing is published on a plain branch push — only the tag triggers `release.yml`.
+- `.vsix` → uploaded as a workflow artifact, and published to the **VS Code Marketplace** +
+  **OpenVSX** via `@vscode/vsce` / `ovsx` (needs `VSCE_PAT` / `OVSX_PAT`).
+- Nothing is published on a `dev` or feature branch push — only a merge to `rc` (pre-release)
+  or `release` (stable) triggers `release.yml`.
 
 ## Development workflow (autonomous — apply without being asked)
 
@@ -156,8 +184,8 @@ This project is developed by an AI agent under continuous, autonomous iteration.
 - Test-driven: for every agreed feature write the tests FIRST (they must fail), then implement until green. No feature code without a test.
 - Feature branches: work on `feature/GCM-<n>-<slug>` off `dev`; merge to `dev` only when the full suite is green. Promote `dev` → `rc` → `release` by merging forward. **There is no `main` branch** (the legacy `main` is kept only for history).
 - Commit periodically in small logical units, Conventional Commits (feat:, fix:, test:, docs:, chore:, ci:). Never add a Co-Authored-By trailer. Push to `origin` after every commit.
-- Bump `package.json` for releases (see *Versioning*); cut tags from `release`. Publishing to the marketplaces is a separate, later, explicit step (the tag-triggered `release.yml`).
-- CI on every push (GitHub Actions): the full gate set above. A tag triggers the package/release job.
+- Do **not** hand-bump `package.json` — GitVersion computes the version and `release.yml` sets it at publish (see *Versioning & releasing*). Release by merging `dev` → `rc` → `release`; publishing to the marketplaces is token-gated (`VSCE_PAT`/`OVSX_PAT`) and approval-gated.
+- CI on every push (GitHub Actions): the full gate set above. A merge to `rc`/`release` triggers the package/release job.
 - Security first: no secrets in git; least privilege; treat GitLab access tokens as full-access credentials.
 - High bar: strict types, JSDoc where useful, lint-clean, meaningful tests. Work like a top-tier engineer + DevOps.
 - Auto-logging: started/ongoing work goes to `TODO.md`; completed and verified work moves to `CHANGELOG.md`, in the same change. Never mark a task done without a passing test.
@@ -194,8 +222,8 @@ Automated/agent development is encouraged (see *Development workflow*), but boun
   has opted this repo into full autonomy. **Promoting `dev` → `rc` → `release` always requires
   human approval.**
 - Anything **irreversible or outward-facing**: force-push / history rewrite; deleting files,
-  branches, or data the agent did not create; tagging a release; **publishing to the VS Code
-  Marketplace / OpenVSX**.
+  branches, or data the agent did not create; merging to `rc`/`release` (which IS a release);
+  **publishing to the VS Code Marketplace / OpenVSX**.
 - **Secrets/credentials** — GitLab tokens, `VSCE_PAT`/`OVSX_PAT`: creating, reading, moving, or
   printing them; adding a secret to CI.
 - **Trust-boundary changes** — editing CI/CD, the security scanners, `CLAUDE.md`/`AGENTS.*`,

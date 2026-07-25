@@ -24,6 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **GCM-16 — release standard: version from GitVersion, publish on merge (no tags).** Adopted the
+  `ai-project-template` release model for a VS Code extension. Added `GitVersion.yml` (clean 6.x
+  config, single source of the version). `release.yml` no longer triggers on a `vX.Y.Z` tag — it
+  now runs `on: push: branches: [rc, release]`: a merge to `rc` publishes a **pre-release**
+  (`vsce publish --pre-release` / `ovsx publish --pre-release`; version `<major>.<minor>.<preReleaseNumber>`
+  since the marketplace rejects a `-rc.N` suffix) and a merge to `release` publishes the **stable**
+  `majorMinorPatch`. The version is injected into `package.json` at publish
+  (`npm version <v> --no-git-tag-version`), never hand-bumped; marketplace publishing stays
+  opt-in via `VSCE_PAT`/`OVSX_PAT`. `CLAUDE.md`'s "Versioning" section became "Versioning &
+  releasing" (GitVersion, merge-to-release). Added a **`Features.md` scope rule** (only
+  user-facing product features; engineering/infra work lives in `TODO.md`/`CHANGELOG.md`) and
+  **actualized `Features.md`** to the real user-facing features (removed the CI/release/infra
+  entries #8–#10; added repo-groups-collapse).
 - **GCM-15 — tamed Dependabot noise + doc-sync exemption.** The `doc-sync` guard now skips
   dependency PRs (the `dependencies` label / `dependabot[bot]` actor) — a version bump carries
   no doc change and should not be forced to fake one. `dependabot.yml` now opens **one grouped
