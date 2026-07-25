@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **GCM-17 — Marketplace odd/even-minor versioning.** The VS Code Marketplace has no pre-release *suffix* (unlike PyPI): versions are one increasing `X.Y.Z` line + a `--pre-release` flag. Adopted Microsoft's scheme — stable on an **even** minor (`next-version: 0.6.0` → `release` publishes clean `0.6.0`), pre-release on the **odd** minor just below it (`rc` publishes `0.5.<N>`). Every pre-release stays strictly below the stable it leads to, so nothing collides.
+
 - **GCM-17 — Open VSX publish hardening.** Auto-create the publisher namespace on Open VSX
   (`ovsx create-namespace`, idempotent), drop `--pre-release` for `ovsx` (ignored on a
   prepackaged `.vsix`), and make the Open VSX step non-fatal (`continue-on-error`) so the VS Code
