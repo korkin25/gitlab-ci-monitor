@@ -116,15 +116,18 @@ jobs:
               if: ${{ env.VSCE_PAT == '' }}
               run: echo "VSCE_PAT not set — skipping marketplace publish"
 
-            # ovsx publishes the already-built .vsix (the proven form for this repo).
+            # ovsx publishes the already-built .vsix. Notes vs vsce:
+            #   * ovsx ignores --pre-release on a prepackaged .vsix, so we never pass it.
+            #   * the publisher namespace must exist on Open VSX — create it idempotently.
+            #   * Open VSX is secondary (the VS Code Marketplace is the primary target), so this
+            #     step is non-fatal: a namespace/registry hiccup must not fail the release.
             - name: Publish to Open VSX
               if: ${{ env.OVSX_PAT != '' }}
+              continue-on-error: true
               run: |
-                  if [ "${{ steps.ver.outputs.prerelease }}" = 'true' ]; then
-                    npx --yes ovsx publish "$VSIX" --pre-release -p "$OVSX_PAT"
-                  else
-                    npx --yes ovsx publish "$VSIX" -p "$OVSX_PAT"
-                  fi
+                  PUB=$(node -p "require('./package.json').publisher")
+                  npx --yes ovsx create-namespace "$PUB" -p "$OVSX_PAT" || true
+                  npx --yes ovsx publish "$VSIX" -p "$OVSX_PAT"
 
             - name: Skip Open VSX publish (no token)
               if: ${{ env.OVSX_PAT == '' }}
