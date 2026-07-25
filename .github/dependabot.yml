@@ -1,3 +1,6 @@
+# Low-noise policy: one grouped PR per ecosystem, weekly, and never a breaking major
+# (major bumps like typescript 4.x -> 7.x or @types/node 16 -> 26 need a deliberate
+# migration, not an auto-PR — do those as their own GCM-<n> task). Minor/patch only.
 version: 2
 updates:
     - package-ecosystem: 'npm'
@@ -6,9 +9,22 @@ updates:
           interval: 'weekly'
       open-pull-requests-limit: 5
       labels: ['dependencies']
+      groups:
+          npm:
+              patterns: ['*']
+              update-types: ['minor', 'patch']
+      ignore:
+          - dependency-name: '*'
+            update-types: ['version-update:semver-major']
 
     - package-ecosystem: 'github-actions'
       directory: '/'
       schedule:
           interval: 'weekly'
       labels: ['dependencies', 'ci']
+      groups:
+          github-actions:
+              patterns: ['*']
+      ignore:
+          - dependency-name: '*'
+            update-types: ['version-update:semver-major']

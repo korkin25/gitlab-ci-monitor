@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **GCM-15 — tamed Dependabot noise + doc-sync exemption.** The `doc-sync` guard now skips
+  dependency PRs (the `dependencies` label / `dependabot[bot]` actor) — a version bump carries
+  no doc change and should not be forced to fake one. `dependabot.yml` now opens **one grouped
+  PR per ecosystem** and **ignores breaking major bumps** (e.g. `typescript` 4.x → 7.x,
+  `@types/node` 16 → 26 need a deliberate migration as their own task, not a red auto-PR); only
+  minor/patch updates are proposed.
 - **GCM-14 — CI reuses `open-ci-actions` SAST, and the branch model moved to
   `dev`/`rc`/`release`.** `.github/workflows/ci.yml` now reuses `korkin25/open-ci-actions@v1`
   `sast.yml` for the language-agnostic security gates (gitleaks, semgrep, checkov, trivy) and
