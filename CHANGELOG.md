@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **GCM-18 — stable releases also cut a GitHub Release with the `.vsix` attached.** A merge to
+  `release` now, in addition to the Marketplace/Open VSX publish, tags `vX.Y.Z` at the release
+  commit and cuts a GitHub Release with auto-generated notes and the built `.vsix` attached
+  (`gh release create`, `permissions.contents: write`, `GH_TOKEN`). The `rc` channel stays
+  marketplace-only (no tag), so pre-release tags never confuse GitVersion.
+
 - **GCM-17 — Marketplace odd/even-minor versioning.** The VS Code Marketplace has no pre-release *suffix* (unlike PyPI): versions are one increasing `X.Y.Z` line + a `--pre-release` flag. Adopted Microsoft's scheme — stable on an **even** minor (`next-version: 0.6.0` → `release` publishes clean `0.6.0`), pre-release on the **odd** minor just below it (`rc` publishes `0.5.<N>`). Every pre-release stays strictly below the stable it leads to, so nothing collides.
 
 - **GCM-17 — Open VSX publish hardening.** Auto-create the publisher namespace on Open VSX

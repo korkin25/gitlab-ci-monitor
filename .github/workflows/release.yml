@@ -38,6 +38,8 @@ jobs:
     release:
         name: Build & publish the extension
         runs-on: ubuntu-latest
+        permissions:
+            contents: write # create the git tag + GitHub Release (stable only)
         env:
             VSCE_PAT: ${{ secrets.VSCE_PAT }}
             OVSX_PAT: ${{ secrets.OVSX_PAT }}
@@ -138,3 +140,22 @@ jobs:
             - name: Skip Open VSX publish (no token)
               if: ${{ env.OVSX_PAT == '' }}
               run: echo "OVSX_PAT not set — skipping Open VSX publish"
+
+            # GitHub Release — STABLE only. A `release`-branch build tags `vX.Y.Z` at
+            # this commit and cuts a GitHub Release with auto-generated notes and the
+            # built `.vsix` attached ($VSIX, set by the Package step). rc (pre-release)
+            # publishes to the marketplaces only — no tag — so pre-release tags never
+            # confuse GitVersion (the version stays driven by `next-version`; auto-tags
+            # sit below it and are ignored as long as you bump `next-version` next).
+            - name: GitHub Release (stable only)
+              if: ${{ github.ref_name == 'release' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -euo pipefail
+                  V="${{ steps.ver.outputs.version }}"
+                  gh release create "v$V" \
+                    --target "${{ github.sha }}" \
+                    --title "v$V" \
+                    --generate-notes \
+                    "$VSIX"
