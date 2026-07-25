@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **GCM-17 — Open VSX publish hardening.** Auto-create the publisher namespace on Open VSX
+  (`ovsx create-namespace`, idempotent), drop `--pre-release` for `ovsx` (ignored on a
+  prepackaged `.vsix`), and make the Open VSX step non-fatal (`continue-on-error`) so the VS Code
+  Marketplace (the primary target) is never blocked by an Open VSX hiccup.
 - **GCM-17 — require VS Code >= 1.63** (`engines.vscode` `^1.61.0` → `^1.63.0`). Pre-release
   publishing to the Marketplace (`vsce publish --pre-release`, used on the `rc` channel) needs
   `engines.vscode >= 1.63`; the old floor blocked it. 1.63 (2021) is well below any VS Code in use.
