@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **GCM-17 — require VS Code >= 1.63** (`engines.vscode` `^1.61.0` → `^1.63.0`). Pre-release
+  publishing to the Marketplace (`vsce publish --pre-release`, used on the `rc` channel) needs
+  `engines.vscode >= 1.63`; the old floor blocked it. 1.63 (2021) is well below any VS Code in use.
 - **GCM-16 — release standard: version from GitVersion, publish on merge (no tags).** Adopted the
   `ai-project-template` release model for a VS Code extension. Added `GitVersion.yml` (clean 6.x
   config, single source of the version). `release.yml` no longer triggers on a `vX.Y.Z` tag — it
