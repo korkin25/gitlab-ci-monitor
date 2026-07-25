@@ -1,0 +1,24 @@
+---
+description: Canonical project rules (router to CLAUDE.md)
+globs:
+alwaysApply: true
+---
+
+# Project rules
+
+The canonical, always-applicable rules for this repository live in **`/CLAUDE.md`** (Cursor
+also reads the root `AGENTS.md`, which is a symlink to it). Read it in full before working.
+
+`CLAUDE.md` is a **router**: start from its "Start here — context map" and load the
+task-relevant files (`Features.md`, `TODO.md`, `README.md`, the relevant `src/**` and its
+`test/*.test.ts`, `.github/workflows/ci.yml`) before acting. Do not work from this pointer or
+from `CLAUDE.md` alone.
+
+Hard rules to remember:
+- **Design before code** — no implementation (not even tests) until the design is finished and
+  any architectural decision is approved.
+- **Doc-sync in the same change** — update README/CHANGELOG/TODO/Features when code changes; CI
+  enforces it.
+- **Zero runtime dependencies** — the GitLab API is called via Node's built-in `https`; a new
+  runtime dependency needs a justified decision.
+- **GitLab tokens are full-access credentials** — never log, hard-code, or commit them.

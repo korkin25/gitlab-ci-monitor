@@ -9,7 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **GCM-14 — adopt the `ai-project-template` engineering standard (feature #10).** Universal
+  agent-rule pickup: `CLAUDE.md` is the single source and `AGENTS.md`, `GEMINI.md`,
+  `.cursorrules`, `.clinerules`, `.windsurfrules`, `.github/copilot-instructions.md` are
+  symlinks to it, with `.cursor/rules/project.mdc` as a thin pointer and a per-turn
+  `.claude/settings.json` hook re-injecting the context map. `CLAUDE.md` was rewritten to the
+  full standard (Start-here context-map router, Testing policy a/b/c, Versioning, Safe
+  autonomy, Agent security working agreements, Design-before-code, MANDATORY Per-task
+  lifecycle). Added `Features.md` (numbered backlog), a **doc-sync** CI guard, **Dependabot**
+  (npm + github-actions), **pre-commit** (gitleaks via Docker only), **CODEOWNERS**, PR/issue
+  templates, `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md`.
+
+### Changed
+
+- **GCM-14 — CI reuses `open-ci-actions` SAST, and the branch model moved to
+  `dev`/`rc`/`release`.** `.github/workflows/ci.yml` now reuses `korkin25/open-ci-actions@v1`
+  `sast.yml` for the language-agnostic security gates (gitleaks, semgrep, checkov, trivy) and
+  keeps the Node/TypeScript gates bespoke (eslint, prettier, `tsc`, `node --test`, plus a
+  `vsce package` smoke that uploads the `.vsix`). The old `main` branch is retired in favour of
+  `feature/*` → `dev` → `rc` → `release`; `dev` is the default branch. Versioning stays
+  `package.json`-based (no GitVersion) and `release.yml` is unchanged.
 
 ## [0.4.2] — 2026-07-24
 
