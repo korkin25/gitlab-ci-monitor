@@ -30,8 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now runs `on: push: branches: [rc, release]`: a merge to `rc` publishes a **pre-release**
   (`vsce publish --pre-release` / `ovsx publish --pre-release`; version `<major>.<minor>.<preReleaseNumber>`
   since the marketplace rejects a `-rc.N` suffix) and a merge to `release` publishes the **stable**
-  `majorMinorPatch`. The version is injected into `package.json` at publish
-  (`npm version <v> --no-git-tag-version`), never hand-bumped; marketplace publishing stays
+  `majorMinorPatch`. `ci.yml` gained a **`Version`** job (reusing `open-ci-actions@v1` gitversion)
+  that proves `GitVersion.yml` parses on every push/PR. The version is injected into `package.json`
+  at publish (`npm version <v> --no-git-tag-version`), never hand-bumped; marketplace publishing stays
   opt-in via `VSCE_PAT`/`OVSX_PAT`. `CLAUDE.md`'s "Versioning" section became "Versioning &
   releasing" (GitVersion, merge-to-release). Added a **`Features.md` scope rule** (only
   user-facing product features; engineering/infra work lives in `TODO.md`/`CHANGELOG.md`) and

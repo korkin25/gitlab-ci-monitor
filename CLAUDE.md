@@ -166,7 +166,8 @@ proves the `.vsix` builds). open-ci-actions has no Node workflow yet, so those j
 **if a second Node project appears, promote them into open-ci-actions** rather than copying.
 The PyPI-Trusted-Publishing part of the standard does not apply (this is a marketplace
 extension), but GitVersion does — the version is computed, never hardcoded (see *Versioning &
-releasing*).
+releasing*). `ci.yml` also runs a `Version` job (open-ci-actions gitversion) on every push/PR so
+a broken `GitVersion.yml` fails fast, before it can break a release.
 
 **Published artifacts:**
 
