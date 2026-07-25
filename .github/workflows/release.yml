@@ -65,11 +65,17 @@ jobs:
                   PRE: ${{ steps.gv.outputs.preReleaseNumber }}
               run: |
                   set -euo pipefail
+                  # Marketplace has no pre-release SUFFIX (unlike PyPI) — versions are one
+                  # increasing X.Y.Z line + a --pre-release flag. So we use Microsoft's
+                  # odd/even-minor scheme: stable = even minor (GitVersion majorMinorPatch,
+                  # driven by next-version, e.g. 0.6.0); pre-release = the odd minor just
+                  # below it, with the commit counter as patch (0.5.<N>). That keeps every
+                  # pre-release strictly below the stable it leads to, so nothing collides.
                   if [ "${{ github.ref_name }}" = "release" ]; then
-                    V="$MMP"                       # clean X.Y.Z, stable
+                    V="$MMP"                          # clean even-minor X.Y.0, stable
                     PRERELEASE=false
                   else
-                    V="${MAJOR}.${MINOR}.${PRE}"   # distinct increasing X.Y.Z for --pre-release
+                    V="${MAJOR}.$((MINOR - 1)).${PRE}" # odd minor below stable, e.g. 0.5.<N>
                     PRERELEASE=true
                   fi
                   echo "version=$V" >> "$GITHUB_OUTPUT"
