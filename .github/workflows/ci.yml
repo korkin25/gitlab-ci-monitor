@@ -1,11 +1,48 @@
+# CI for the gitlab-ci-monitor VS Code extension.
+#
+# Two layers:
+#   sast  — REUSES the language-agnostic security gates from the public
+#           korkin25/open-ci-actions@v1 (gitleaks, semgrep, checkov, trivy-config).
+#           has-python/has-dockerfile are false: the Python- and Dockerfile-only
+#           jobs inside sast.yml skip themselves. New shared CI logic belongs there.
+#   node  — BESPOKE Node/TypeScript gates (open-ci-actions has no Node workflow yet):
+#           eslint, prettier --check, tsc typecheck, node --test, and a `vsce package`
+#           smoke that proves the .vsix builds. If a second Node project appears,
+#           promote these into open-ci-actions rather than copying them.
+#
+# Publishing is NOT here — a `v*.*.*` tag triggers the vendored release.yml.
 name: CI
 
 on:
     push:
+        branches: ['**']
+        tags: ['v*']
     pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-    build:
+    # Language-agnostic security gates, reused from open-ci-actions.
+    sast:
+        name: SAST
+        permissions:
+            contents: read
+            security-events: write # lets the scanners publish SARIF to the Security tab
+        uses: korkin25/open-ci-actions/.github/workflows/sast.yml@v1
+        with:
+            has-python: 'false'
+            has-dockerfile: 'false'
+            semgrep-configs: p/javascript p/typescript p/security-audit p/secrets
+
+    # Bespoke Node/TypeScript quality gates + packaging smoke.
+    node:
+        name: Node (lint/typecheck/test/package)
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
@@ -29,8 +66,18 @@ jobs:
             - name: Typecheck / compile (tsc)
               run: npm run compile
 
-            - name: Test
+            - name: Test (node --test)
               run: npm test
 
-            - name: Dependency audit
+            - name: Dependency audit (report)
               run: npm audit --audit-level=high || true
+
+            - name: Package (.vsix smoke)
+              run: npm run package
+
+            - name: Upload .vsix artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: vsix
+                  path: '*.vsix'
+                  if-no-files-found: error

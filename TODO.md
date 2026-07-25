@@ -2,6 +2,17 @@
 
 ## Current state / next action
 
+- **GCM-14 in progress** (2026-07-26): **adopt the `ai-project-template` engineering standard**
+  (feature #10), adapted for a TS VS Code extension. Branch model migrated `main` →
+  `dev`/`rc`/`release` (`dev` default; `main` legacy). Done on `feature/GCM-14-full-standard`:
+  CI reuses `open-ci-actions@v1` `sast.yml` + bespoke Node gates (eslint/prettier/tsc/`node
+  --test`/`vsce package`); universal agent-rule symlinks + `.claude/settings.json` hook +
+  `.cursor/rules/project.mdc`; `CLAUDE.md` rewritten to the full standard (context-map router /
+  Testing policy / Versioning=package.json / Safe-autonomy / Agent-security / Design-before-code
+  / Per-task lifecycle); `Features.md`, `doc-sync.yml`, Dependabot, pre-commit (gitleaks-only),
+  CODEOWNERS, PR/issue templates, SECURITY/CONTRIBUTING/CoC. `.gitlab-ci.yml` skipped (no Node
+  GitLab template). `release.yml` unchanged. **Next:** push branch → PR to `dev` → analyze CI
+  logs (even if green) → merge with `--no-ff` once green.
 - **State:** `GCM-1`–`GCM-6` done. Tooling: `node:test` suite (28 green tests),
   ESLint + Prettier (lint-clean), token in Secret Storage, tag-triggered release workflow.
   Latest: `GCM-6` — expanding a project (via file open or repo click) now expands it in
