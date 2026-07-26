@@ -2,6 +2,17 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — Stable 1.0.0 released (new scheme, GCM-24 + GCM-25)
+
+- **Released stable `1.0.0`** (user "go"). Promoted `dev` → `rc` → `release` under the new GCM-25
+  scheme: `rc` published pre-release **`0.10.7`**, then `release` published **stable `1.0.0`** to the
+  VS Code Marketplace + Open VSX, with GitHub Release `v1.0.0`. Verified each with a GitVersion
+  dry-run before pushing (rc `0.10.7 > 0.9.4`; release `1.0.0 > 0.10.7`). Carries GCM-24 (stage
+  execution order).
+- **No post-release chore needed.** Unlike the odd/even scheme, this one is self-sustaining: the
+  `v1.0.0` tag is now the floor, so the next cycle (`dev` 1.0.x → `rc` 1.1.N → `release` 2.0.0) needs
+  no `next-version` bump. `next-version: 0.10.0` stays as the (now-inert) first-cycle seed.
+
 ## 2026-07-26 — GCM-25: simpler version scheme (user-directed)
 
 - **Replaced the odd/even scheme (GCM-23) with a simpler one** at the user's request: each promotion
