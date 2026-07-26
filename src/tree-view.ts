@@ -14,9 +14,16 @@ import {
 } from 'vscode';
 import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs, getJobNeeds } from './pipelines';
 import { groupJobsByStage, resolveNeeds, aggregateStageStatus, JobDep } from './job-order';
+import { formatDuration, jobDurationSeconds, pipelineDurationSeconds } from './duration';
 import { repoProjectForPath, expansionChanges } from './expansion';
 import { latestFailedByRef, pendingFailureNotifications, formatFailureMessage } from './notify';
 import { pipelinesSignature } from './signature';
+
+// ` · 1m 23s` suffix for a node label, or '' when the duration is unknown.
+const durationSuffix = (seconds: number | null): string => {
+	const d = seconds == null ? '' : formatDuration(seconds);
+	return d ? ` · ${d}` : '';
+};
 
 // ---------------------------------------------------------------------------
 // module state
@@ -37,12 +44,19 @@ const notifiedFailureByRef: Map<string, number> = new Map();
 const jobsCache: Map<number, { stages: any[]; ts: number }> = new Map();
 const JOBS_TTL_RUNNING = 4000;
 const JOBS_TTL_DONE = 10 * 60 * 1000;
+// When a pipeline's jobs fail to load, keep retrying this often while it stays expanded
+// (a fired refresh only re-runs getChildren if the node is still open, so a collapsed
+// node naturally stops the loop). Guarded so at most one retry is pending per pipeline.
+const JOBS_RETRY_MS = 3000;
+const pendingJobRetries: Set<number> = new Set();
 // How long the transient failure toast stays before it dismisses itself (no click).
 const FAILURE_TOAST_MS = 2500;
 // signature of the last rendered pipeline data — the tree is only refreshed when
 // this changes, so nothing re-renders (and expanded jobs stay cached) while the
 // pipelines are unchanged.
 let lastSignature: string | null = null;
+// bumped each poll while any pipeline is running, so live durations tick in the label
+let runningTick = 0;
 let currentConfig: RepoConfig | null = null;
 let statusBar: StatusBarItem | undefined;
 // which repo groups are expanded — persisted across refreshes so a group the user
@@ -114,17 +128,17 @@ function createRepoNode(config: RepoConfig, count: number): any {
 function createPipelineNode(pipeline: any, config: RepoConfig): any {
 	const emoji = STATUS_EMOJI[pipeline.status] || '⌛';
 	const status = pipeline.status;
+	// Running/pending → can be stopped; anything finished → can be re-run fresh.
 	const running = status === 'running' || status === 'pending' || status === 'created';
-	// "Retry" only makes sense on a failed/canceled pipeline (it re-runs the failed
-	// jobs); a finished-clean pipeline offers "Run new pipeline" instead, not retry.
-	const retryable = status === 'failed' || status === 'canceled';
 	return {
 		id: `pipe:${pipeline.id}`,
 		isPipelineNode: true,
-		label: `${emoji}  ${pipeline.id} · ${pipeline.status} · ${pipeline.ref}`,
+		label: `${emoji}  ${pipeline.id} · ${pipeline.status} · ${pipeline.ref}${durationSuffix(
+			pipelineDurationSeconds(pipeline, Date.now())
+		)}`,
 		collapsibleState: TreeItemCollapsibleState.Collapsed,
 		tooltip: pipeline.web_url,
-		contextValue: running ? 'pipelineItemRunning' : retryable ? 'pipelineItemRetryable' : 'pipelineItemDone',
+		contextValue: running ? 'pipelineItemRunning' : 'pipelineItemDone',
 		pipelineId: pipeline.id,
 		iid: pipeline.iid,
 		pipelineStatus: pipeline.status,
@@ -183,7 +197,7 @@ function createJobNode(job: any, config: RepoConfig, pipelineId: number, deps: J
 	const node: any = {
 		id: `job:${pipelineId}:${job.id}`,
 		isJobNode: true,
-		label: `${emoji}  ${job.name || job.id}`,
+		label: `${emoji}  ${job.name || job.id}${durationSuffix(jobDurationSeconds(job, Date.now()))}`,
 		collapsibleState: depNodes.length ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None,
 		tooltip: job.web_url,
 		contextValue: jobContextValue(job.status),
@@ -204,12 +218,9 @@ function createJobNode(job: any, config: RepoConfig, pipelineId: number, deps: J
 // their stages); GraphQL supplies the `needs` DAG — best-effort, so a token without
 // GraphQL scope (or an old GitLab) simply yields jobs with no dependency edges.
 async function buildStageTree(config: RepoConfig, pipelineId: number, iid: any): Promise<any[]> {
-	let jobs: any[];
-	try {
-		jobs = await getPipelineJobs(config, pipelineId);
-	} catch (e) {
-		jobs = [];
-	}
+	// Let a jobs-fetch failure PROPAGATE — getChildren must be able to tell "no jobs"
+	// from "fetch failed" so it does not cache an empty subtree on a transient timeout.
+	const jobs = await getPipelineJobs(config, pipelineId);
 	let needs = new Map<string, string[]>();
 	if (iid != null) {
 		try {
@@ -237,6 +248,21 @@ export class TreeViewProvider implements TreeDataProvider<TreeItem> {
 
 	refresh(): void {
 		this._onDidChangeTreeData.fire(undefined);
+	}
+
+	// Re-fetch a pipeline node's jobs after a delay, until it succeeds. Firing the change
+	// re-runs getChildren only while the node is expanded, so a collapsed node stops the
+	// loop; one retry is pending per pipeline at a time.
+	private scheduleJobRetry(element: any): void {
+		const id = Number(element?.pipelineId);
+		if (!id || pendingJobRetries.has(id)) {
+			return;
+		}
+		pendingJobRetries.add(id);
+		setTimeout(() => {
+			pendingJobRetries.delete(id);
+			this._onDidChangeTreeData.fire(element);
+		}, JOBS_RETRY_MS);
 	}
 
 	getTreeItem(element: TreeItem): TreeItem {
@@ -281,9 +307,18 @@ export class TreeViewProvider implements TreeDataProvider<TreeItem> {
 			if (cached && Date.now() - cached.ts < ttl) {
 				return cached.stages;
 			}
-			const stages = await buildStageTree(config, id, element.iid);
-			jobsCache.set(id, { stages, ts: Date.now() });
-			return stages;
+			try {
+				const stages = await buildStageTree(config, id, element.iid);
+				jobsCache.set(id, { stages, ts: Date.now() });
+				return stages;
+			} catch (e) {
+				// A failed/timed-out fetch must NOT be cached as "no jobs" — otherwise the
+				// pipeline stays expanded-but-empty. Leave the cache alone AND keep retrying:
+				// schedule a refresh of this node, which re-runs getChildren (only while the
+				// node is still expanded) until the fetch finally succeeds.
+				this.scheduleJobRetry(element);
+				return cached ? cached.stages : [];
+			}
 		}
 		return [];
 	}
@@ -455,9 +490,27 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 		}
 	}
 	updateStatusBar();
-	// only re-render when the pipeline data actually changed — otherwise the tree
-	// (and any expanded, cached jobs) stays put instead of flickering every poll.
-	const signature = sigParts.join('|');
+	// Only re-render when the pipeline data actually changed — otherwise the tree stays
+	// put instead of flickering every poll. EXCEPTION: while something is running, add a
+	// per-poll tick so the live durations advance (and running jobs refresh); when the
+	// workspace is idle the signature is stable again, so nothing re-renders needlessly.
+	let anyRunning = false;
+	for (const items of newByRepo.values()) {
+		for (const it of items) {
+			const s = it.pipelineStatus;
+			if (s === 'running' || s === 'pending' || s === 'created') {
+				anyRunning = true;
+				break;
+			}
+		}
+		if (anyRunning) {
+			break;
+		}
+	}
+	if (anyRunning) {
+		runningTick++;
+	}
+	const signature = sigParts.join('|') + (anyRunning ? `~${runningTick}` : '');
 	if (lastSignature !== signature) {
 		lastSignature = signature;
 		provider.refresh();

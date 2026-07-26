@@ -199,10 +199,6 @@ export function getJobNeeds(
 		.catch(() => new Map<string, string[]>());
 }
 
-export function retryPipeline(conf: RepoConfig, pipelineId: number): Promise<any> {
-	return apiRequest(conf, `/pipelines/${pipelineId}/retry`, 'POST');
-}
-
 export function cancelPipeline(conf: RepoConfig, pipelineId: number): Promise<any> {
 	return apiRequest(conf, `/pipelines/${pipelineId}/cancel`, 'POST');
 }

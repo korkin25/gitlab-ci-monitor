@@ -2,6 +2,27 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-30/31/32: stop/logs/run buttons, durations, cache fix
+
+- **GCM-30 (supersedes GCM-29's retry tweak).** Removed the pipeline-level **Retry** action entirely
+  (`pipeline.retry` command + `retryPipeline` API + menus) — the user found it confusing. Inline
+  buttons now: **Stop** (running pipeline `pipeline.cancel`, running job `pipeline.job.cancel`),
+  **Open job log** (live, `pipeline.job.log`) on every job, **Run new pipeline** on finished
+  pipelines. Renamed the cancel titles to "Stop …". Job retry/play stay in the job's right-click menu.
+  Pipeline `contextValue` simplified to `pipelineItemRunning` / `pipelineItemDone`.
+- **GCM-31 — run durations** on every pipeline/job label: live-ticking elapsed while running, final
+  run time when finished. Pure `src/duration.ts` (`formatDuration`/`jobDurationSeconds`/
+  `pipelineDurationSeconds`, tested with injected `now`). To make running durations tick, the
+  change-detection signature gains a per-poll counter **only while something is running** (idle stays
+  stable, preserving the GCM-12 no-flicker behavior); this also refreshes running jobs each poll.
+- **GCM-32 — fix "expanded but empty" pipelines + auto-retry.** A timed-out `getPipelineJobs` was
+  cached as "no jobs", so the pipeline stayed empty until the 10-min TTL. Now the fetch error
+  propagates (`buildStageTree` no longer swallows it) and `getChildren` does not cache the failure;
+  it also **keeps retrying** — `scheduleJobRetry` fires a node refresh every `JOBS_RETRY_MS` (3s),
+  which re-runs `getChildren` only while the node stays expanded (collapsed → loop stops), one retry
+  pending per pipeline. So a transient timeout self-heals without the user re-expanding.
+- Tests: 77 group-(a) green (duration helpers + earlier http/timer patterns).
+
 ## 2026-07-26 — GCM-29: fix "Retry pipeline" confusion + add "Run new pipeline"
 
 - **User report:** the inline "Retry pipeline" icon seemed to do nothing. Cause: it showed on ANY

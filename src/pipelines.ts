@@ -23,7 +23,6 @@ export {
 	getJobTrace,
 	getJob,
 	getJobNeeds,
-	retryPipeline,
 	cancelPipeline,
 	runPipeline,
 	retryJob,

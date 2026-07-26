@@ -27,7 +27,6 @@ import {
 	getAllConfigs,
 	getJobTrace,
 	getJob,
-	retryPipeline,
 	cancelPipeline,
 	runPipeline,
 	retryJob,
@@ -105,25 +104,7 @@ export async function activate(context: ExtensionContext) {
 		})
 	);
 
-	context.subscriptions.push(
-		commands.registerCommand('pipeline.retry', async (item: any) => {
-			const config = getConfigForPipeline(item?.pipelineId);
-			if (!config || !item?.pipelineId) {
-				return;
-			}
-			try {
-				await retryPipeline(config, item.pipelineId);
-				window.setStatusBarMessage(`Pipeline #${item.pipelineId} — retrying failed jobs`, 3000);
-			} catch (e) {
-				window.showErrorMessage(`Retry failed: ${e}`);
-			}
-			invalidatePipelineJobs(item.pipelineId);
-			await updateAllPipelinesStatus(provider);
-			provider.refresh();
-		})
-	);
-
-	// run a brand-new pipeline on a pipeline's ref (a fresh run, not a retry)
+	// run a brand-new pipeline on a pipeline's ref (a fresh run)
 	context.subscriptions.push(
 		commands.registerCommand('pipeline.run', async (item: any) => {
 			const config = getConfigForPipeline(item?.pipelineId) || getConfigForProject(item?.project);

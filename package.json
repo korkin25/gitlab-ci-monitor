@@ -48,12 +48,6 @@
 				"icon": "$(refresh)"
 			},
 			{
-				"command": "pipeline.retry",
-				"title": "Retry pipeline (rerun failed jobs)",
-				"category": "GitLab CI",
-				"icon": "$(debug-restart)"
-			},
-			{
 				"command": "pipeline.run",
 				"title": "Run new pipeline",
 				"category": "GitLab CI",
@@ -61,14 +55,15 @@
 			},
 			{
 				"command": "pipeline.cancel",
-				"title": "Cancel pipeline",
+				"title": "Stop pipeline",
 				"category": "GitLab CI",
 				"icon": "$(stop-circle)"
 			},
 			{
 				"command": "pipeline.job.log",
-				"title": "Stream job log (live)",
-				"category": "GitLab CI"
+				"title": "Open job log (live)",
+				"category": "GitLab CI",
+				"icon": "$(output)"
 			},
 			{
 				"command": "pipeline.job.retry",
@@ -78,7 +73,7 @@
 			},
 			{
 				"command": "pipeline.job.cancel",
-				"title": "Cancel job",
+				"title": "Stop job",
 				"category": "GitLab CI",
 				"icon": "$(stop-circle)"
 			},
@@ -135,11 +130,6 @@
 			],
 			"view/item/context": [
 				{
-					"command": "pipeline.retry",
-					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemRetryable",
-					"group": "inline"
-				},
-				{
 					"command": "pipeline.cancel",
 					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemRunning",
 					"group": "inline"
@@ -148,11 +138,6 @@
 					"command": "pipeline.run",
 					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemDone",
 					"group": "inline"
-				},
-				{
-					"command": "pipeline.retry",
-					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemRetryable",
-					"group": "1_actions"
 				},
 				{
 					"command": "pipeline.cancel",
@@ -170,9 +155,14 @@
 					"group": "2_open"
 				},
 				{
-					"command": "pipeline.job.retry",
-					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == jobItemRetryable",
-					"group": "1_actions"
+					"command": "pipeline.job.log",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem =~ /^jobItem/",
+					"group": "inline"
+				},
+				{
+					"command": "pipeline.job.cancel",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == jobItemRunning",
+					"group": "inline"
 				},
 				{
 					"command": "pipeline.job.cancel",
@@ -180,9 +170,19 @@
 					"group": "1_actions"
 				},
 				{
+					"command": "pipeline.job.retry",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == jobItemRetryable",
+					"group": "1_actions"
+				},
+				{
 					"command": "pipeline.job.play",
 					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == jobItemManual",
 					"group": "1_actions"
+				},
+				{
+					"command": "pipeline.job.log",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem =~ /^jobItem/",
+					"group": "2_open"
 				},
 				{
 					"command": "pipeline.click",

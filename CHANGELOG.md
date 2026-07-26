@@ -11,12 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **GCM-29 — clarify "Retry pipeline" and add "Run new pipeline".** "Retry pipeline" (which re-runs a
-  pipeline's *failed/canceled* jobs) is now offered **only on a failed/canceled pipeline** — it no
-  longer appears on a green pipeline where it would be a confusing no-op. A new **"Run new pipeline"**
-  action creates a fresh pipeline on the pipeline's ref (`runPipeline` → `POST /pipeline?ref=…`),
-  available inline on finished pipelines and in every pipeline's right-click menu. After a
-  retry/run the pipeline's jobs are invalidated and the tree re-renders so the change shows at once.
+- **GCM-31 — show run durations.** Every pipeline and job now shows how long it took: a live-ticking
+  elapsed time while running (the tree refreshes each poll only while something is running), and the
+  final run time once finished (`✅  compile · 12s`). Pure helpers `formatDuration` /
+  `jobDurationSeconds` / `pipelineDurationSeconds` in `src/duration.ts`.
+- **GCM-30 — Stop / Logs / Run buttons; "Retry pipeline" removed.** Inline buttons now match intent:
+  **Stop** on a running pipeline or job, **Open job log** (live) on every job, **Run new pipeline** on
+  a finished pipeline. The confusing pipeline-level **Retry** action was removed entirely (job retry
+  stays in the job's menu). "Run new pipeline" (`runPipeline` → `POST /pipeline?ref=…`) creates a
+  fresh run; after any action the pipeline's jobs are invalidated so the change shows immediately.
 
 - **GCM-27 — retry / cancel / play jobs and pipelines from the right-click menu.** The context menu
   now offers actions on both levels: a **pipeline** can be retried or canceled (also still inline);
@@ -45,6 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CLAUDE.md`.)
 
 ### Fixed
+
+- **GCM-32 — expanding a pipeline whose jobs failed to load no longer stays permanently empty.** A
+  timed-out/failed `getPipelineJobs` used to be cached as "no jobs" (for up to the 10-minute
+  finished-TTL), so the pipeline showed expanded-but-empty forever. Now a fetch failure propagates
+  instead of being swallowed, is **not** cached, and the extension **keeps retrying automatically**:
+  it schedules a refresh of the node every few seconds until the jobs load — retrying only while the
+  node stays expanded (a collapsed node stops the loop), at most one retry pending per pipeline.
 
 - **GCM-24 — show pipeline stages in execution order, not reversed.** The stage tree listed stages
   in the order GitLab's `/pipelines/:id/jobs` returns jobs — which is **newest-first (descending
