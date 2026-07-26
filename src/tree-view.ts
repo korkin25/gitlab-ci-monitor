@@ -91,6 +91,9 @@ const FAILURE_TOAST_MS = 2500;
 let lastSignature: string | null = null;
 // bumped each poll while any pipeline is running, so live durations tick in the label
 let runningTick = 0;
+// true when the last poll saw a running/pending pipeline — drives the adaptive interval
+let anyRunningNow = false;
+export const hasRunningPipelines = (): boolean => anyRunningNow;
 let currentConfig: RepoConfig | null = null;
 let statusBar: StatusBarItem | undefined;
 // which repo groups are expanded — persisted across refreshes so a group the user
@@ -226,9 +229,8 @@ function createPipelineNode(pipeline: any, config: RepoConfig): any {
 	const status = pipeline.status;
 	// Running/pending → can be stopped; anything finished → can be re-run fresh.
 	const running = status === 'running' || status === 'pending' || status === 'created';
-	const rest = `${pipeline.id} · ${pipeline.status} · ${pipeline.ref}${durationSuffix(
-		pipelineDurationSeconds(pipeline, Date.now())
-	)}`;
+	// The status emoji already conveys success/failed/running — no need to spell it out.
+	const rest = `${pipeline.id} · ${pipeline.ref}${durationSuffix(pipelineDurationSeconds(pipeline, Date.now()))}`;
 	const node: any = {
 		id: `pipe:${pipeline.id}`,
 		isPipelineNode: true,
@@ -610,6 +612,7 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 			break;
 		}
 	}
+	anyRunningNow = anyRunning; // drives the adaptive poll interval (poll faster while running)
 	if (anyRunning) {
 		runningTick++;
 	}

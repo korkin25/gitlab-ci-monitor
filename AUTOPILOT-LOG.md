@@ -2,6 +2,17 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-35/36: adaptive polling + trimmed pipeline label
+
+- **GCM-35 — adaptive polling (live without Refresh).** GitLab has no pipeline-status WebSocket (its
+  own UI polls), so instead of a fixed `setInterval` the refresh loop self-schedules: `pollOnce`
+  re-arms via `nextPollDelay(hasRunningPipelines(), idleMs, fastMs)` — ~2s while running, the
+  configured interval (5s) when idle. Pure `nextPollDelay` in `src/poll.ts` (tested);
+  `hasRunningPipelines()` exposed from `tree-view.ts`. Explained to the user why a real GitLab
+  WebSocket isn't feasible (no PAT-authable pipeline-status socket; zero-dep rule).
+- **GCM-36 — trimmed the pipeline label.** Dropped the `success`/`failed` word (the emoji says it):
+  label is now `#id · ref · duration`.
+
 ## 2026-07-26 — GCM-33/34: open-pipeline menu item + finish flash
 
 - **GCM-33 — "Open pipeline in GitLab"** added to the pipeline right-click menu (`pipeline.open`,

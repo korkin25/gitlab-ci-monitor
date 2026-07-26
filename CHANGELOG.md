@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GCM-35 — adaptive polling for near-live updates (no manual Refresh).** The refresh loop is now
+  self-scheduling: it polls **fast (~2s) while any pipeline is running** and backs off to the
+  configured interval once everything finishes. GitLab has no pipeline-status WebSocket (its own UI
+  polls), so this is the efficient equivalent. Pure `nextPollDelay` in `src/poll.ts`;
+  `hasRunningPipelines()` drives it.
+
 - **GCM-34 — finish flash.** When a pipeline or job transitions into a finished state, its status
   icon flashes for ~⅓ s — **✨** on success, **💥** on failure (⚪/🔵 for canceled/skipped) — then
   reverts to the normal icon, as a lightweight "something just happened" cue. Pure `shouldFlash` in
@@ -39,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `src/gitlab-api.ts`); "Open pipeline in GitLab" opens the pipeline itself (`pipeline.open`).
 
 ### Changed
+
+- **GCM-36 — drop the redundant status word from a pipeline's label.** The status emoji already
+  conveys success/failed/running, so the label is now `#id · ref · duration` instead of
+  `#id · status · ref` (jobs never showed the word).
 
 - **GCM-26 — click a job to stream its log; right-click to open it in GitLab (swapped).** Previously
   a click opened GitLab and the log was a context-menu action; now the primary click streams the live

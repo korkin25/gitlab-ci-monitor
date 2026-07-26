@@ -21,8 +21,10 @@ import {
 	getConfigForPipeline,
 	getConfigForProject,
 	invalidatePipelineJobs,
+	hasRunningPipelines,
 	setRepoExpanded
 } from './tree-view';
+import { nextPollDelay } from './poll';
 import {
 	getAllConfigs,
 	getJobTrace,
@@ -279,22 +281,44 @@ export async function activate(context: ExtensionContext) {
 	await reloadSecrets();
 	await migrateSettingsTokens();
 
+	// Adaptive polling: GitLab has no pipeline-status WebSocket, so we approximate "live"
+	// by self-scheduling — poll fast (≤2s) while anything is running, and back off to the
+	// configured interval once everything has finished. A single timer, re-armed after
+	// each poll based on whether pipelines are still running.
 	const configs = getAllConfigs();
-	const interval = (configs[0] && configs[0].interval) || 5000;
-	const tid = setInterval(() => {
+	const idleMs = (configs[0] && configs[0].interval) || 5000;
+	const fastMs = 2000;
+	let pollTimer: ReturnType<typeof setTimeout> | undefined;
+	let stopped = false;
+	const scheduleNextPoll = () => {
+		if (stopped) {
+			return;
+		}
+		pollTimer = setTimeout(pollOnce, nextPollDelay(hasRunningPipelines(), idleMs, fastMs));
+	};
+	const pollOnce = async () => {
 		try {
-			updateAllPipelinesStatus(provider);
+			await updateAllPipelinesStatus(provider);
 		} catch (e) {
 			console.error(e);
 		}
-	}, interval);
-	context.subscriptions.push({ dispose: () => clearInterval(tid) });
+		scheduleNextPoll();
+	};
+	context.subscriptions.push({
+		dispose: () => {
+			stopped = true;
+			if (pollTimer) {
+				clearTimeout(pollTimer);
+			}
+		}
+	});
 
 	updateAllPipelinesStatus(provider)
 		.then(() => expandActiveEditorRepo(explorerView))
 		.catch(() => {
 			/* ignore */
-		});
+		})
+		.finally(() => scheduleNextPoll());
 }
 
 export function deactivate() {
