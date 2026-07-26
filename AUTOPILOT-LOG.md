@@ -2,6 +2,13 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-41: label job `needs` explicitly (not a bug, a clarity fix)
+
+- **User report:** `default_build` shown under `default_sign` looked like a bug ("can't be in
+  default_sign"). It's the **`needs` DAG** (GCM-20): `default_sign` needs `default_build` — correct.
+  The `↳ ✅ name` label just read as nesting. Changed the dep label to `↳ needs ✅ name` and the
+  tooltip to "…a dependency this job waits for". Label-only change in `createDepNode`.
+
 ## 2026-07-26 — GCM-40: web sign-in + multi-GitLab (already supported) discoverability
 
 - **User ask:** support several GitLab instances (public + private) and web-based auth (OAuth or

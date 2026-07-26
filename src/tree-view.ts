@@ -292,15 +292,16 @@ function createLoadingNode(pipelineId: number): any {
 	};
 }
 
-// A leaf under a job showing one of its `needs` (the DAG edge) and that job's status.
+// A leaf under a job showing one of its `needs` (a DAG dependency, NOT a job in this
+// stage). The explicit "needs" wording avoids reading it as "this job is inside here".
 function createDepNode(parentJobId: number, dep: JobDep): any {
 	const emoji = STATUS_EMOJI[dep.status] || '❔';
 	return {
 		id: `dep:${parentJobId}:${dep.name}`,
 		isDepNode: true,
-		label: `↳ ${emoji} ${dep.name}`,
+		label: `↳ needs ${emoji} ${dep.name}`,
 		collapsibleState: TreeItemCollapsibleState.None,
-		tooltip: `needs: ${dep.name} — ${dep.status}`
+		tooltip: `needs ${dep.name} (${dep.status}) — a dependency this job waits for`
 	};
 }
 
