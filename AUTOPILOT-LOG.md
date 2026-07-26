@@ -2,6 +2,22 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-21: live-streaming job log (Pseudoterminal)
+
+- **Replaced the one-shot static log document with a live tail.** "Stream job log (live)" now opens
+  the trace in a VS Code `Pseudoterminal`; the trace is polled and only the newly-appended tail is
+  written each time, so a running job's log streams in incrementally, ANSI colors intact,
+  auto-scrolling. Closing the terminal stops the stream; a second open re-focuses the live terminal.
+- **Decision `GCM-D1`: no WebSocket.** GitLab exposes no WebSocket for a CI job trace (its own web UI
+  polls the trace endpoint). "Streaming" is therefore incremental polling — the honest equivalent
+  over the API GitLab actually provides. Documented in `src/log-stream.ts` and the CHANGELOG.
+- **Pure, unit-tested core** in `src/log-stream.ts` (`startLogStream` with injectable timers,
+  `computeDelta`, `isJobFinished`, `toTerminalChunk`, `stripSectionMarkers`). Added `getJob` to
+  `src/gitlab-api.ts` for live status. The `gitlab-ci-log:` virtual-document content provider was
+  removed; `src/ansi.ts` is left in place (the terminal renders ANSI, so `stripAnsi` is unused but
+  the tested utility is kept). _Reverse:_ revert the branch; the previous document viewer is in git
+  history.
+
 ## 2026-07-26 — GCM-20: jobs as a stage tree + `needs` dependency tree
 
 - **Pipelines now expand into `stage → job → dependency` nodes** instead of a flat job list. Pure,

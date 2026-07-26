@@ -7,7 +7,9 @@ import {
 	ExtensionContext,
 	TreeView,
 	TreeItem,
-	EventEmitter
+	EventEmitter,
+	Pseudoterminal,
+	Terminal
 } from 'vscode';
 import {
 	TreeViewProvider,
@@ -20,18 +22,21 @@ import {
 	getConfigForProject,
 	setRepoExpanded
 } from './tree-view';
-import { stripAnsi } from './ansi';
 import {
 	getAllConfigs,
 	getJobTrace,
+	getJob,
 	retryPipeline,
 	cancelPipeline,
 	getWorkspaceDomains,
-	setTokenStore
+	setTokenStore,
+	RepoConfig
 } from './pipelines';
+import { startLogStream, toTerminalChunk, stripSectionMarkers, LogStream } from './log-stream';
 import { TokenStore } from './token-store';
 
-const LOG_SCHEME = 'gitlab-ci-log';
+// Job-log terminals, keyed by job id, so a second "view log" reuses the live one.
+const logTerminals = new Map<number, Terminal>();
 
 export async function activate(context: ExtensionContext) {
 	const provider = new TreeViewProvider();
@@ -126,33 +131,16 @@ export async function activate(context: ExtensionContext) {
 		})
 	);
 
-	// job logs open as read-only virtual documents — no "save?" prompt when you close the tab
-	const logContents = new Map<string, string>();
-	const onDidChangeLog = new EventEmitter<Uri>();
+	// job logs stream live into a terminal — the trace tails in as the job runs, ANSI
+	// colors intact, and there is no "save?" prompt. (GitLab exposes no trace WebSocket,
+	// so the stream is incremental trace polling — see src/log-stream.ts, GCM-D1.)
 	context.subscriptions.push(
-		workspace.registerTextDocumentContentProvider(LOG_SCHEME, {
-			onDidChange: onDidChangeLog.event,
-			provideTextDocumentContent: (uri: Uri) => logContents.get(uri.toString()) || ''
-		})
-	);
-	context.subscriptions.push(
-		commands.registerCommand('pipeline.job.log', async (item: any) => {
+		commands.registerCommand('pipeline.job.log', (item: any) => {
 			const config = getConfigForProject(item?.project);
 			if (!config || !item?.jobId) {
 				return;
 			}
-			try {
-				const trace = await getJobTrace(config, item.jobId);
-				const header = `# GitLab CI — job ${item.jobId}${item.jobName ? ' · ' + item.jobName : ''}\n\n`;
-				const text = header + (stripAnsi(String(trace || '')) || '(empty log)');
-				const uri = Uri.parse(`${LOG_SCHEME}:job-${item.jobId}.log`);
-				logContents.set(uri.toString(), text);
-				onDidChangeLog.fire(uri);
-				const doc = await workspace.openTextDocument(uri);
-				await window.showTextDocument(doc, { preview: false });
-			} catch (e) {
-				window.showErrorMessage(`Failed to load job log: ${e}`);
-			}
+			openJobLogTerminal(context, config, Number(item.jobId), item.jobName, item.jobStatus);
 		})
 	);
 
@@ -264,6 +252,68 @@ export async function activate(context: ExtensionContext) {
 
 export function deactivate() {
 	/* noop */
+}
+
+/**
+ * Open (or re-focus) a terminal that streams a job's log. The trace is polled and the
+ * newly-appended tail is written to the terminal as it arrives, so a running job's log
+ * tails live; ANSI colors are preserved. Closing the terminal stops the stream. A
+ * second "view log" for the same job re-focuses the existing terminal instead of
+ * opening a duplicate.
+ */
+function openJobLogTerminal(
+	context: ExtensionContext,
+	config: RepoConfig,
+	jobId: number,
+	jobName?: string,
+	jobStatus?: string
+): void {
+	const existing = logTerminals.get(jobId);
+	if (existing) {
+		existing.show();
+		return;
+	}
+
+	const writeEmitter = new EventEmitter<string>();
+	let stream: LogStream | null = null;
+
+	const pty: Pseudoterminal = {
+		onDidWrite: writeEmitter.event,
+		open: () => {
+			const title = `GitLab CI — job ${jobId}${jobName ? ' · ' + jobName : ''}`;
+			writeEmitter.fire(`\x1b[1m${title}\x1b[0m\r\n\r\n`);
+			stream = startLogStream({
+				initialStatus: jobStatus,
+				fetchStatus: () =>
+					getJob(config, jobId)
+						.then((j: any) => (j && j.status) || '')
+						.catch(() => jobStatus || ''),
+				fetchTrace: () => getJobTrace(config, jobId),
+				onChunk: (chunk, reset) => {
+					if (reset) {
+						writeEmitter.fire('\x1b[2J\x1b[H'); // clear screen + home
+					}
+					writeEmitter.fire(toTerminalChunk(stripSectionMarkers(chunk)));
+				},
+				onDone: (status) => {
+					writeEmitter.fire(`\r\n\x1b[2m— job ${status} —\x1b[0m\r\n`);
+				}
+			});
+		},
+		close: () => {
+			if (stream) {
+				stream.stop();
+				stream = null;
+			}
+			logTerminals.delete(jobId);
+		}
+	};
+
+	const terminal = window.createTerminal({ name: `CI · ${jobName || jobId}`, pty });
+	logTerminals.set(jobId, terminal);
+	// Disposing on deactivate triggers pty.close(), which stops the stream.
+	context.subscriptions.push(terminal);
+	terminal.show();
 }
 
 /**

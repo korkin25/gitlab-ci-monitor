@@ -30,7 +30,8 @@ Monitor your GitLab pipelines in real time, right inside VS Code — across **ev
 - **Two homes.** The tree shows up under **Source Control** *and* the **Explorer** — pick whichever panel you live in. Opening a file in a project, or selecting a repository in the built-in **Source Control** list, expands that project in the panel — **in place, without switching sidebars or stealing focus**.
 - **Status bar indicator.** The pipeline status of the active editor's repo/branch is shown in the status bar; click it to open the pipeline in GitLab. It follows you as you switch files.
 - **Smart failure notifications.** A desktop notification pops up only when the **latest** pipeline for a branch has `failed` — and only **once per branch failure**. If a newer run on that branch succeeds, no notification. Toggle with `notifyOnFailed`.
-- **Actions.** Retry or cancel a pipeline from inline buttons; click a pipeline or a job to open it in GitLab; view a job's log via its context menu.
+- **Actions.** Retry or cancel a pipeline from inline buttons; click a pipeline or a job to open it in GitLab.
+- **Live job log.** "Stream job log (live)" opens the job's trace in a terminal that **tails in real time** as the job runs — new output arrives incrementally, ANSI colors intact, auto-scrolling like a real log. Closing the terminal stops the stream; re-opening a still-running job re-focuses it. (GitLab has no trace WebSocket, so the stream is efficient incremental polling of the trace endpoint.)
 - **Token in VS Code Secret Storage.** Your GitLab token is kept in the OS keychain via VS Code Secret Storage — not in plaintext settings. A legacy `settings.json` token is auto-migrated, and a `GITLAB_TOKEN` env var still works as a fallback (see [Token](#token-required)).
 - **Repo groups collapse by default**, and the active editor's repo auto-expands.
 - **Zero runtime dependencies** — the GitLab API is called via Node's built-in `https`.

@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GCM-21 — job logs stream live into a terminal instead of a static document.** "Stream job log
+  (live)" now opens the trace in a `Pseudoterminal` that tails in real time as the job runs: each
+  poll fetches the trace and only the newly-appended tail is written, so output arrives
+  incrementally, ANSI colors intact, auto-scrolling like a real log. Closing the terminal stops the
+  stream; re-opening a still-running job re-focuses the existing one. GitLab exposes no WebSocket for
+  a job trace, so the stream is incremental polling of the trace endpoint — the streaming equivalent
+  over the API GitLab actually provides (decision **GCM-D1**). New pure, unit-tested core in
+  `src/log-stream.ts` (`startLogStream`, `computeDelta`, `isJobFinished`, `toTerminalChunk`,
+  `stripSectionMarkers`) with an injectable timer/transport; `getJob` added to `src/gitlab-api.ts`
+  to read live job status. The one-shot read-only-document viewer (and its `gitlab-ci-log:` content
+  provider) is replaced.
+
 - **GCM-20 — jobs render as a stage tree with the job dependency (`needs`) graph.** A pipeline no
   longer expands into a flat job list. Jobs now nest under their **stage** (each stage node shows
   an aggregate status summarising its jobs), and any job with `needs` is collapsible, revealing
