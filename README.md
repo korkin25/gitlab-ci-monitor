@@ -19,10 +19,10 @@ Monitor your GitLab pipelines in real time, right inside VS Code — across **ev
            ✅  lint · 12s
         ✅  test (1)
            ✅  unit · 1m 8s
-              ↳ ✅ compile
+              ↳ needs ✅ compile
         🚦  deploy (1)
            🚦  deploy
-              ↳ ✅ unit
+              ↳ needs ✅ unit
   📦 repo-b · dev (20)
      🏃  456 · dev · 34s
   ```

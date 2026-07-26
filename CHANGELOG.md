@@ -87,6 +87,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **GCM-41 — label a job's `needs` explicitly so it isn't misread as a job inside the stage.** A
+  dependency under a job showed as `↳ ✅ default_build`, which looked like `default_build` lived in
+  that stage; it now reads `↳ needs ✅ default_build` (and the tooltip spells out it's a dependency
+  the job waits for). No logic change — this is the `needs` DAG (e.g. `sign` needs `build`).
+
 - **GCM-39 — a pipeline whose jobs are still loading shows a spinner, not an empty node.** When a
   pipeline is expanded and its jobs are still being fetched (or a fetch failed and is retrying), it
   now shows a spinning **"loading jobs…"** placeholder instead of a misleading empty list — with the
