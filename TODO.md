@@ -2,27 +2,29 @@
 
 ## Current state / next action
 
-**Cutting `0.6.0`** — three user-requested features (`GCM-20`/`GCM-21`/`GCM-22`), each on its own
-`feature/*` branch → PR to `dev` → promote `dev` → `rc` → `release`. `VSCE_PAT`/`OVSX_PAT` are now
-configured, so a merge to `rc`/`release` publishes to the VS Code Marketplace + Open VSX (`rc` =
-pre-release `0.5.<N>`, `release` = stable `0.6.0`), and `release` also cuts a GitHub Release.
+**`0.6.10` (pre-release) is LIVE with all three features.** `GCM-20`/`GCM-21`/`GCM-22` are merged to
+`dev` (PRs #15/#16/#17, CI green) and were promoted `dev` → `rc`, which published a **pre-release
+`0.6.10`** to the VS Code Marketplace + Open VSX. All three features are installable now via the
+pre-release channel.
 
-- **GCM-20 — jobs as a stage tree + `needs` dependency tree** ✅ merged to `dev` (PR #15, CI green):
-  pipelines expand into stage nodes → job nodes → dependency leaves. Pure logic in
-  `src/job-order.ts`; `needs` edges via GitLab GraphQL in `src/gitlab-api.ts` (best-effort).
-- **GCM-21 — live-streaming job log** ✅ merged to `dev` (PR #16, CI green): "Stream job log (live)"
-  tails the trace in a `Pseudoterminal` (incremental polling — no trace WebSocket, decision `GCM-D1`).
-- **GCM-22 — startup + auto-dismiss failure notifications** (in progress, on
-  `feature/GCM-22-startup-and-transient-notify`): notifications now fire on the first poll too, so a
-  branch's **latest** red pipeline is announced at startup (older/superseded failures still
-  suppressed), once per `project|ref`; and the toast self-dismisses after ~2.5s with no click. Pure
-  helpers `pendingFailureNotifications`/`formatFailureMessage` in `src/notify.ts` (group-(a) green).
-  **Next:** PR → `dev`, then promote `dev` → `rc` → `release` to publish `0.6.0`.
+- **GCM-20 — jobs as a stage tree + `needs` dependency tree** ✅ (PR #15).
+- **GCM-21 — live-streaming job log** ✅ (PR #16) — `Pseudoterminal` tail, incremental polling
+  (no trace WebSocket, decision `GCM-D1`).
+- **GCM-22 — startup + auto-dismiss failure notifications** ✅ (PR #17).
 
-**Shipped so far (see `CHANGELOG.md`):** `GCM-1`…`GCM-19` — multi-root tree in Explorer + Source
-Control, status bar, smart failure notifications (`latestFailedByRef`), change-detection refresh
-gate (`pipelinesSignature`), token in Secret Storage, the `ai-project-template` standard, the
-`dev`/`rc`/`release` branch model with GitVersion, and the doc-sync CI guard.
+**Stable `release` is BLOCKED — see `GCM-23`.** The `rc` publish came out as `0.6.10`, not the
+`0.5.<N>` the odd/even scheme intended, so a stable cut (which GitVersion computes as `0.6.1`) is now
+**below** the live pre-release and the Marketplace would reject it. Fix the version scheme
+(`GCM-23`) before cutting a stable; `next-version` will need to move above `0.6.10`.
+
+**Next action:** `GCM-23` — fix the release version scheme, then cut a clean stable that supersedes
+`0.6.10`. Until then, `0.6.10` (pre-release) is the current release.
+
+**Shipped so far (see `CHANGELOG.md`):** `GCM-1`…`GCM-22` — multi-root tree in Explorer + Source
+Control, **stage/dependency job tree**, **live-streaming job log**, status bar, smart failure
+notifications (latest-at-startup, self-dismissing), change-detection refresh gate, token in Secret
+Storage, the `ai-project-template` standard, the `dev`/`rc`/`release` branch model with GitVersion,
+and the doc-sync CI guard.
 
 ## Legend
 
@@ -47,7 +49,7 @@ fresh (cold-start) session knows exactly what to do next.
 
 | ID | Status | Task |
 |----|--------|------|
-| —  | —      | (none — GCM-1…GCM-4 done; agree the next task with the user) |
+| GCM-23 | 🟡 | Fix the release version scheme so a clean stable can supersede the live `0.6.10` pre-release |
 
 ## Backlog
 
@@ -55,9 +57,32 @@ The initial backlog (`GCM-1`…`GCM-4`) is complete — see `CHANGELOG.md` → U
 New candidates below; prioritize and confirm with the user before starting, each
 delivered test-first.
 
+### GCM-23 — release version scheme (odd/even) is broken
+
+**Symptom.** Promoting `dev` → `rc` published a **pre-release `0.6.10`** (not the `0.5.<N>` the
+config comments intend). A subsequent stable would be GitVersion `0.6.1` (`release` increments
+Patch over `next-version: 0.6.0`), which is **below** the live `0.6.10`, so the Marketplace rejects
+it — stable `release` is blocked.
+
+**Root cause.** `GitVersion.yml` gives the `rc` branch `increment: Minor`, so GitVersion computes
+`MajorMinorPatch = 0.7.0` on `rc` (a minor above `next-version`). `release.yml`'s rc formula
+`V = ${MAJOR}.$((MINOR - 1)).${PRE}` then yields `0.6.<commitsSinceVersionSource>` = `0.6.10` — an
+**even** minor that collides with the intended stable minor, and a patch (`10`) that can exceed the
+stable patch. So the pre-release ends up **above**, not below, the stable it should precede.
+
+**Fix (design, do test-first with a local GitVersion dry-run):**
+1. Make the `rc` GitVersion increment stop overshooting the minor (e.g. `rc` `increment: None`/align
+   with `next-version`) so the rc formula produces the intended odd-minor-below-stable (`0.5.<N>`),
+   **or** rework `release.yml` to derive the pre-release from the stable minus one minor explicitly.
+2. Because `0.6.10` is already burned on the Marketplace, bump `next-version` **above** `0.6.10`
+   (e.g. `0.8.0`, keeping stable on an even minor per Microsoft) so the next stable supersedes it.
+3. **Gate:** before pushing `rc`/`release`, dry-run GitVersion locally
+   (`docker run --rm -v "$PWD:/repo" gittools/gitversion:6.8.2 /repo /showvariable ...`) on both
+   branches and assert `pre-release < stable` and `stable > 0.6.10`.
+
 | ID | Status | Task |
 |----|--------|------|
-| —  | —      | (empty — add new `GCM-<n>` items as they come up) |
+| GCM-23 | 🟡 | Release version scheme fix (details above) — then cut a clean stable > `0.6.10` |
 
 ## Planned / ideas
 

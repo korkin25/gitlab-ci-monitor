@@ -2,7 +2,23 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
-## 2026-07-26 — GCM-22: latest-failure-at-startup + self-dismissing toast
+## 2026-07-26 — Release 0.6.10 (pre-release) + GCM-23: version-scheme bug found
+
+- **Published `0.6.10` (pre-release) with GCM-20/21/22.** After merging the three features to `dev`
+  (PRs #15/#16/#17, all CI green), promoted `dev` → `rc` (fast-forward). `release.yml` published a
+  **pre-release** to the VS Code Marketplace (`Published korkin25.gitlab-ci-monitor v0.6.10`) and
+  Open VSX (`Published korkin25.gitlab-ci-monitor v0.6.10`). All three features are live via the
+  pre-release channel.
+- **Stopped before the stable `release` (user decision).** A stable cut computes GitVersion `0.6.1`
+  (`release` increments Patch over `next-version: 0.6.0`), which is **below** the live `0.6.10`, so
+  the Marketplace would reject it. Verified locally with a GitVersion dry-run on a non-pushed
+  `release` merge (`/showvariable MajorMinorPatch` → `0.6.1`). Reset the local `release` back to
+  `origin/release`; **no stable publish was attempted.**
+- **Filed `GCM-23`** (see `TODO.md`) for the pre-existing odd/even release-version bug: `rc`'s
+  `increment: Minor` makes GitVersion `0.7.0` on `rc`, and `release.yml`'s `MINOR-1` formula yields
+  `0.6.<commitCount>` instead of the intended `0.5.<N>`, so the pre-release lands above the stable.
+  Fix design + a local-dry-run gate are recorded in `TODO.md`. This is release infra, not one of the
+  three feature changes.
 
 - **Announce a branch's latest failure at startup.** Failure notifications previously suppressed
   everything on the first poll (GCM-11's baseline), so you never learned at startup that your latest
