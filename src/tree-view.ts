@@ -7,8 +7,7 @@ import {
 	EventEmitter,
 	window,
 	workspace,
-	commands,
-	Uri,
+	ProgressLocation,
 	StatusBarAlignment,
 	StatusBarItem,
 	TreeView
@@ -16,7 +15,7 @@ import {
 import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs, getJobNeeds } from './pipelines';
 import { groupJobsByStage, resolveNeeds, aggregateStageStatus, JobDep } from './job-order';
 import { repoProjectForPath, expansionChanges } from './expansion';
-import { latestFailedByRef } from './notify';
+import { latestFailedByRef, pendingFailureNotifications, formatFailureMessage } from './notify';
 import { pipelinesSignature } from './signature';
 
 // ---------------------------------------------------------------------------
@@ -38,7 +37,8 @@ const notifiedFailureByRef: Map<string, number> = new Map();
 const jobsCache: Map<number, { stages: any[]; ts: number }> = new Map();
 const JOBS_TTL_RUNNING = 4000;
 const JOBS_TTL_DONE = 10 * 60 * 1000;
-let baselineDone = false;
+// How long the transient failure toast stays before it dismisses itself (no click).
+const FAILURE_TOAST_MS = 2500;
 // signature of the last rendered pipeline data — the tree is only refreshed when
 // this changes, so nothing re-renders (and expanded jobs stay cached) while the
 // pipelines are unchanged.
@@ -328,29 +328,32 @@ function trackStatus(pipeline: any): void {
 	}
 }
 
+// A self-dismissing failure toast: a notification that needs no click and slides
+// away on its own after FAILURE_TOAST_MS. VS Code keeps a message with buttons (or an
+// Error message) on screen until dismissed, so we use a progress notification whose
+// task simply resolves after the delay — that auto-closes with no action to click.
+function showTransientFailure(message: string): void {
+	window.withProgress(
+		{ location: ProgressLocation.Notification, title: message, cancellable: false },
+		() => new Promise<void>((resolve) => setTimeout(resolve, FAILURE_TOAST_MS))
+	);
+}
+
 /**
- * Notify about failed pipelines, but only when a failure is the LATEST pipeline
- * for its branch (a newer success/running run suppresses it), and only once per
- * `project|ref` failure. When `notify` is false (the initial snapshot) we just
- * record the current failures so pre-existing ones never pop up on startup.
+ * Notify about failed pipelines. A failure is reported only when it is the LATEST
+ * pipeline for its branch (a newer success/running run suppresses it, and older
+ * superseded failures are never reported), and only once per `project|ref` failure.
+ * This runs on every poll INCLUDING the first, so a branch whose latest pipeline is
+ * already red is announced at startup — just not the older, already-superseded ones.
  */
-function notifyFailures(config: RepoConfig, pipelines: any[], notify: boolean): void {
-	for (const { ref, id } of latestFailedByRef(pipelines)) {
-		const key = `${config.project}|${ref}`;
-		if (notifiedFailureByRef.get(key) === id) {
-			continue; // already notified for this exact failure
-		}
+function notifyFailures(config: RepoConfig, pipelines: any[]): void {
+	const latest = latestFailedByRef(pipelines);
+	for (const { ref, id, key } of pendingFailureNotifications(latest, config.project, notifiedFailureByRef)) {
 		notifiedFailureByRef.set(key, id);
-		if (!notify || config.notifyOnFailed === false) {
+		if (config.notifyOnFailed === false) {
 			continue;
 		}
-		const short = (config.project || '').split('/').slice(-1)[0];
-		const pipeline = pipelines.find((p) => p.id === id);
-		window.showErrorMessage(`❌ Pipeline #${id} failed — ${short} (${ref})`, 'Open in GitLab').then((choice) => {
-			if (choice && pipeline && pipeline.web_url) {
-				commands.executeCommand('vscode.open', Uri.parse(pipeline.web_url));
-			}
-		});
+		showTransientFailure(formatFailureMessage(config.project, ref, id));
 	}
 }
 
@@ -399,14 +402,13 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 			trackStatus(p);
 			return createPipelineNode(p, config);
 		});
-		notifyFailures(config, pipelines, baselineDone);
+		notifyFailures(config, pipelines);
 		newByRepo.set(config.project, items);
 		newRepoNodes.push(createRepoNode(config, items.length));
 		sigParts.push(`${config.project}@${config.currentBranch}#${pipelinesSignature(pipelines)}`);
 	}
 	repoNodes = newRepoNodes;
 	pipelinesByRepo = newByRepo;
-	baselineDone = true;
 	// drop cache entries for pipelines that dropped out of the list
 	for (const id of jobsCache.keys()) {
 		if (!currentIds.has(id)) {
