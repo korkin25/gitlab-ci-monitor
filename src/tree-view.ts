@@ -13,7 +13,7 @@ import {
 	StatusBarItem,
 	TreeView
 } from 'vscode';
-import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs, getJobNeeds } from './pipelines';
+import { RepoConfig, getAllConfigs, getRunningPipelines, getPipeline, getPipelineJobs, getJobNeeds } from './pipelines';
 import { groupJobsByStage, resolveNeeds, aggregateStageStatus, JobDep } from './job-order';
 import { formatDuration, jobDurationSeconds, pipelineDurationSeconds } from './duration';
 import { shouldFlash } from './flash';
@@ -84,6 +84,53 @@ async function runJobRetryRound(provider: TreeViewProvider): Promise<void> {
 	}
 	ensureJobRetryLoop(provider); // reschedule while anything remains
 }
+
+// Accurate run-time fields (duration / started_at / finished_at) live only on the
+// single-pipeline endpoint, not the list. We fetch them in the background and cache per
+// pipeline id, refetching when a pipeline's status changes; the label shows no duration
+// until the detail arrives (avoids the bogus created→updated wall-clock time).
+interface PipelineDetail {
+	duration: number | null;
+	started_at: string | null;
+	finished_at: string | null;
+	status: string;
+}
+const pipelineDetail: Map<number, PipelineDetail> = new Map();
+const pipelineDetailQueue: Map<number, RepoConfig> = new Map();
+let pipelineDetailTimer: ReturnType<typeof setTimeout> | null = null;
+
+function ensurePipelineDetailLoop(provider: TreeViewProvider): void {
+	if (pipelineDetailTimer || pipelineDetailQueue.size === 0) {
+		return;
+	}
+	pipelineDetailTimer = setTimeout(async () => {
+		pipelineDetailTimer = null;
+		const batch = Array.from(pipelineDetailQueue);
+		pipelineDetailQueue.clear();
+		let changed = false;
+		await Promise.all(
+			batch.map(async ([id, config]) => {
+				try {
+					const p = await getPipeline(config, id);
+					pipelineDetail.set(id, {
+						duration: typeof p?.duration === 'number' ? p.duration : null,
+						started_at: p?.started_at ?? null,
+						finished_at: p?.finished_at ?? null,
+						status: p?.status ?? ''
+					});
+					changed = true;
+				} catch (e) {
+					/* leave it; a later poll re-queues it */
+				}
+			})
+		);
+		if (changed) {
+			provider.refresh();
+		}
+		ensurePipelineDetailLoop(provider);
+	}, 200);
+}
+
 // How long the transient failure toast stays before it dismisses itself (no click).
 const FAILURE_TOAST_MS = 2500;
 // signature of the last rendered pipeline data — the tree is only refreshed when
@@ -230,8 +277,13 @@ function createPipelineNode(pipeline: any, config: RepoConfig): any {
 	const status = pipeline.status;
 	// Running/pending → can be stopped; anything finished → can be re-run fresh.
 	const running = status === 'running' || status === 'pending' || status === 'created';
-	// The status emoji already conveys success/failed/running — no need to spell it out.
-	const rest = `${pipeline.id} · ${pipeline.ref}${durationSuffix(pipelineDurationSeconds(pipeline, Date.now()))}`;
+	// Merge the accurate run-time fields (fetched separately) so the duration is real,
+	// not the created→updated wall time. The status emoji already conveys the state.
+	const detail = pipelineDetail.get(pipeline.id);
+	const timed = detail
+		? { ...pipeline, duration: detail.duration, started_at: detail.started_at, finished_at: detail.finished_at }
+		: pipeline;
+	const rest = `${pipeline.id} · ${pipeline.ref}${durationSuffix(pipelineDurationSeconds(timed, Date.now()))}`;
 	const node: any = {
 		id: `pipe:${pipeline.id}`,
 		isPipelineNode: true,
@@ -584,6 +636,11 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 			currentIds.add(p.id);
 			pipelineConfigById.set(p.id, config);
 			trackStatus(p);
+			// (re)fetch the run-time detail when we have none, or its status changed
+			const d = pipelineDetail.get(p.id);
+			if (!d || d.status !== p.status) {
+				pipelineDetailQueue.set(p.id, config);
+			}
 			return createPipelineNode(p, config);
 		});
 		notifyFailures(config, pipelines);
@@ -604,6 +661,13 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 			lastStatusById.delete(id);
 		}
 	}
+	for (const id of pipelineDetail.keys()) {
+		if (!currentIds.has(id)) {
+			pipelineDetail.delete(id);
+			pipelineDetailQueue.delete(id);
+		}
+	}
+	ensurePipelineDetailLoop(provider); // drain any newly-queued detail fetches
 	// forget notified failures whose pipeline is no longer in the list
 	for (const [key, id] of notifiedFailureByRef) {
 		if (!currentIds.has(id)) {

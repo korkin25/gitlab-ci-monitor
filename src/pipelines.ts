@@ -19,6 +19,7 @@ export {
 	buildRequestOptions,
 	apiRequest,
 	getRunningPipelines,
+	getPipeline,
 	getPipelineJobs,
 	getJobTrace,
 	fetchJobTraceRange,

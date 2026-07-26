@@ -86,6 +86,12 @@ export function getRunningPipelines(conf: RepoConfig): Promise<any[]> {
 	return apiRequest(conf, '/pipelines').then((d) => (Array.isArray(d) ? d : []));
 }
 
+/** A single pipeline — the list endpoint omits `duration`/`started_at`/`finished_at`,
+ *  which are needed for an accurate run time (see pipelineDurationSeconds). */
+export function getPipeline(conf: RepoConfig, pipelineId: number): Promise<any> {
+	return apiRequest(conf, `/pipelines/${pipelineId}`);
+}
+
 export function getPipelineJobs(conf: RepoConfig, pipelineId: number): Promise<any[]> {
 	return apiRequest(conf, `/pipelines/${pipelineId}/jobs?per_page=100&page=1`).then((d) =>
 		Array.isArray(d) ? d : []

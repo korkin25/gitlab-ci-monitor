@@ -37,16 +37,30 @@ test('jobDurationSeconds: null when never started and no duration', () => {
 	assert.equal(jobDurationSeconds({ status: 'created' }, NOW), null);
 });
 
-test('pipelineDurationSeconds: running counts from created_at to now', () => {
-	const p = { status: 'running', created_at: '2026-07-26T10:00:00.000Z', updated_at: '2026-07-26T10:00:10.000Z' };
+test('pipelineDurationSeconds: running counts started_at → now (not created_at)', () => {
+	const p = { status: 'running', started_at: '2026-07-26T10:00:00.000Z', created_at: '2026-07-26T00:00:00.000Z' };
 	assert.equal(pipelineDurationSeconds(p, NOW), 30);
 });
 
-test('pipelineDurationSeconds: finished uses created_at → updated_at', () => {
-	const p = { status: 'success', created_at: '2026-07-26T10:00:00.000Z', updated_at: '2026-07-26T10:00:20.000Z' };
-	assert.equal(pipelineDurationSeconds(p, NOW), 20);
+test('pipelineDurationSeconds: finished uses the real duration, not created→updated', () => {
+	// created 10h before NOW, updated_at bumped late — must NOT read as ~10h; duration wins.
+	const p = {
+		status: 'success',
+		created_at: '2026-07-26T00:00:00.000Z',
+		updated_at: '2026-07-26T10:22:00.000Z',
+		started_at: '2026-07-26T09:57:00.000Z',
+		finished_at: '2026-07-26T10:00:00.000Z',
+		duration: 180
+	};
+	assert.equal(pipelineDurationSeconds(p, NOW), 180);
 });
 
-test('pipelineDurationSeconds: null without a created_at', () => {
+test('pipelineDurationSeconds: finished without duration falls back to finished−started', () => {
+	const p = { status: 'failed', started_at: '2026-07-26T09:59:45.000Z', finished_at: '2026-07-26T10:00:00.000Z' };
+	assert.equal(pipelineDurationSeconds(p, NOW), 15);
+});
+
+test('pipelineDurationSeconds: null when not started / no data (no bogus queue time)', () => {
 	assert.equal(pipelineDurationSeconds({ status: 'running' }, NOW), null);
+	assert.equal(pipelineDurationSeconds({ status: 'pending', created_at: '2026-07-26T00:00:00.000Z' }, NOW), null);
 });
