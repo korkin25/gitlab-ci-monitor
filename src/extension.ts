@@ -28,6 +28,7 @@ import { nextPollDelay } from './poll';
 import {
 	getAllConfigs,
 	getJobTrace,
+	fetchJobTraceRange,
 	getJob,
 	cancelPipeline,
 	runPipeline,
@@ -39,11 +40,64 @@ import {
 	setTokenStore,
 	RepoConfig
 } from './pipelines';
-import { startLogStream, toTerminalChunk, stripSectionMarkers, LogStream } from './log-stream';
+import {
+	startLogStream,
+	toTerminalChunk,
+	stripSectionMarkers,
+	dropPartialFirstLine,
+	lastLines,
+	parseContentRangeTotal,
+	LogStream,
+	TailResult
+} from './log-stream';
 import { TokenStore } from './token-store';
 
 // Job-log terminals, keyed by job id, so a second "view log" reuses the live one.
 const logTerminals = new Map<number, Terminal>();
+
+// The live log is a TAIL — a devops wants to see what is happening NOW, not download a
+// possibly huge log (the whole thing lives on GitLab). So we fetch only the last chunk
+// via an HTTP suffix Range, then append only the newly-written bytes on each poll.
+const LOG_TAIL_BYTES = 64 * 1024;
+const LOG_TAIL_LINES = 200;
+
+async function fetchTraceTail(config: RepoConfig, jobId: number, fromByte: number | null): Promise<TailResult> {
+	if (fromByte == null) {
+		// initial: the last LOG_TAIL_BYTES of the trace
+		const { status, body, contentRange } = await fetchJobTraceRange(config, jobId, `bytes=-${LOG_TAIL_BYTES}`);
+		if (status === 416) {
+			return { chunk: '', end: 0, reset: true }; // empty log so far
+		}
+		const total = parseContentRangeTotal(contentRange);
+		if (status === 206 && total != null) {
+			// efficient path: show the tail; resume appending from the true end (total)
+			return { chunk: lastLines(dropPartialFirstLine(body), LOG_TAIL_LINES), end: total, reset: true };
+		}
+		if (status === 200) {
+			// server ignored Range and sent the full trace — just show its tail
+			return { chunk: lastLines(body, LOG_TAIL_LINES), end: body.length, reset: true };
+		}
+		// 206 without a usable total (rare) — fall back to the full trace to get the length
+		const full = await getJobTrace(config, jobId);
+		return { chunk: lastLines(full, LOG_TAIL_LINES), end: full.length, reset: true };
+	}
+	// incremental: only the bytes written since `fromByte`
+	const { status, body } = await fetchJobTraceRange(config, jobId, `bytes=${fromByte}-`);
+	if (status === 416) {
+		return { chunk: '', end: fromByte, reset: false }; // nothing new yet
+	}
+	if (status === 206) {
+		return { chunk: body, end: fromByte + body.length, reset: false };
+	}
+	if (status === 200) {
+		// Range ignored → full trace; slice what we've already shown
+		if (body.length >= fromByte) {
+			return { chunk: body.slice(fromByte), end: body.length, reset: false };
+		}
+		return { chunk: lastLines(body, LOG_TAIL_LINES), end: body.length, reset: true }; // shrank → reset
+	}
+	return { chunk: '', end: fromByte, reset: false }; // unexpected status → no-op this poll
+}
 
 export async function activate(context: ExtensionContext) {
 	const provider = new TreeViewProvider();
@@ -352,17 +406,21 @@ function openJobLogTerminal(
 		onDidWrite: writeEmitter.event,
 		open: () => {
 			const title = `GitLab CI — job ${jobId}${jobName ? ' · ' + jobName : ''}`;
-			writeEmitter.fire(`\x1b[1m${title}\x1b[0m\r\n\r\n`);
+			const header =
+				`\x1b[1m${title}\x1b[0m\r\n` +
+				`\x1b[2m(live tail — last ${LOG_TAIL_LINES} lines; full log in GitLab)\x1b[0m\r\n\r\n`;
+			writeEmitter.fire(header);
 			stream = startLogStream({
 				initialStatus: jobStatus,
 				fetchStatus: () =>
 					getJob(config, jobId)
 						.then((j: any) => (j && j.status) || '')
 						.catch(() => jobStatus || ''),
-				fetchTrace: () => getJobTrace(config, jobId),
+				fetchTail: (fromByte) => fetchTraceTail(config, jobId, fromByte),
 				onChunk: (chunk, reset) => {
 					if (reset) {
 						writeEmitter.fire('\x1b[2J\x1b[H'); // clear screen + home
+						writeEmitter.fire(header); // re-draw the header the clear wiped
 					}
 					writeEmitter.fire(toTerminalChunk(stripSectionMarkers(chunk)));
 				},

@@ -46,6 +46,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **GCM-38 — the live job log is now a `tail`, not a full download.** Instead of fetching the entire
+  trace (slow for large logs), it fetches only the **last ~200 lines** via an HTTP suffix range
+  (`fetchJobTraceRange` → `Range: bytes=-…`) and then appends only the newly-written bytes on each
+  poll, tracked by byte offset. If GitLab ignores the range header it transparently falls back to
+  slicing the full body. New pure helpers `dropPartialFirstLine` / `lastLines` /
+  `parseContentRangeTotal` in `src/log-stream.ts`; the stream controller is now byte-offset based.
+
 - **GCM-37 — drop the redundant "Skip … (no token)" release steps.** `release.yml` had a paired
   `Skip … (no token)` echo step next to each marketplace publish; since a token-gated publish step
   already shows as *skipped* when its secret is absent, the extra step was pure noise (one green, one
@@ -70,6 +77,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CLAUDE.md`.)
 
 ### Fixed
+
+- **GCM-39 — a pipeline whose jobs are still loading shows a spinner, not an empty node.** When a
+  pipeline is expanded and its jobs are still being fetched (or a fetch failed and is retrying), it
+  now shows a spinning **"loading jobs…"** placeholder instead of a misleading empty list — with the
+  background retry (GCM-32) continuing until the jobs arrive, at which point they replace the
+  spinner. A pipeline that genuinely has zero jobs still shows empty.
 
 - **GCM-32 — expanding a pipeline whose jobs failed to load no longer stays permanently empty.** A
   timed-out/failed `getPipelineJobs` used to be cached as "no jobs" (for up to the 10-minute
