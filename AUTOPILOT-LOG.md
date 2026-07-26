@@ -2,6 +2,16 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-42: pipeline duration = real run time (fix bogus 10h)
+
+- **User report:** a green pipeline showed `10h 22m` though jobs ran ~3 min. Cause: pipeline
+  duration was `created_at → updated_at` (list fields), which includes queue time and any later
+  record update (manual/delayed job, retry, downstream bridge). Rewrote `pipelineDurationSeconds`
+  to use real `duration`/`started_at`/`finished_at` (like jobs). Those are only on `/pipelines/:id`,
+  so added `getPipeline` + a background `pipelineDetail` cache (fetched per pipeline, refetched on
+  status change, pruned with the list) merged into the node; no duration is shown until it loads
+  (never the bogus wall time). Tests updated (incl. the 10h→3min regression). 87 tests.
+
 ## 2026-07-26 — GCM-41: label job `needs` explicitly (not a bug, a clarity fix)
 
 - **User report:** `default_build` shown under `default_sign` looked like a bug ("can't be in

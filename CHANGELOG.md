@@ -87,6 +87,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **GCM-42 — pipeline duration is now the real run time, not a bogus wall-clock span.** A finished
+  pipeline could show an absurd duration (e.g. `10h 22m`) for a run that actually took minutes:
+  the value was `created_at → updated_at` from the pipeline list, which spans queue time and any
+  later record update (a manual/delayed job, a retry, a downstream bridge). Now `pipelineDurationSeconds`
+  uses the real `duration` / `started_at` / `finished_at` — fetched per pipeline from the single
+  `/pipelines/:id` endpoint (`getPipeline`), cached and refetched only on a status change (so no
+  extra requests in steady state). Until the detail loads the label simply shows no duration.
+
 - **GCM-41 — label a job's `needs` explicitly so it isn't misread as a job inside the stage.** A
   dependency under a job showed as `↳ ✅ default_build`, which looked like `default_build` lived in
   that stage; it now reads `↳ needs ✅ default_build` (and the tooltip spells out it's a dependency

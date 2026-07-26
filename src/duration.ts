@@ -43,19 +43,26 @@ export function jobDurationSeconds(job: any, nowMs: number): number | null {
 }
 
 /**
- * How long a pipeline has run, in seconds. The `/pipelines` list has no `duration`,
- * so we use its timestamps: a running pipeline counts created_at→now (total wall
- * time, incl. queue); a finished one counts created_at→updated_at. `null` without a
- * created_at.
+ * How long a pipeline has RUN, in seconds — the actual execution time, not wall time.
+ * Uses `started_at`/`finished_at`/`duration` (from the single-pipeline endpoint), the
+ * same way `jobDurationSeconds` does. It deliberately does NOT use created_at→updated_at:
+ * that spans queue time and any later record update (a manual/delayed job, a retry, a
+ * downstream bridge), which can read as hours for a pipeline that ran for minutes.
+ * A running pipeline counts started_at→now; `null` until it has started / has data.
  */
 export function pipelineDurationSeconds(pipeline: any, nowMs: number): number | null {
-	const created = parse(pipeline?.created_at);
-	if (isNaN(created)) {
-		return null;
-	}
 	const status = pipeline?.status;
 	const running = status === 'running' || status === 'pending' || status === 'created';
-	const end = running ? nowMs : parse(pipeline?.updated_at);
-	const endMs = isNaN(end) ? nowMs : end;
-	return Math.max(0, (endMs - created) / 1000);
+	const started = parse(pipeline?.started_at);
+	if (running) {
+		return isNaN(started) ? null : Math.max(0, (nowMs - started) / 1000);
+	}
+	if (typeof pipeline?.duration === 'number') {
+		return pipeline.duration;
+	}
+	const finished = parse(pipeline?.finished_at);
+	if (!isNaN(started) && !isNaN(finished)) {
+		return Math.max(0, (finished - started) / 1000);
+	}
+	return null;
 }
