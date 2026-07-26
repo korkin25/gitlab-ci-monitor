@@ -55,7 +55,7 @@ fresh (cold-start) session knows exactly what to do next.
 
 | ID | Status | Task |
 |----|--------|------|
-| —  | —      | (none — `0.8.0` shipped; agree the next task with the user) |
+| GCM-24 | 🟡 | Order stage tree by execution (min job id per stage), not API first-seen — bug reported against `0.8.0`; heads to `0.10.0` |
 
 ## Backlog
 

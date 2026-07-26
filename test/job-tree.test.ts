@@ -9,12 +9,12 @@ test('aggregateStageStatus surfaces the most important status among a stage', ()
 	assert.equal(aggregateStageStatus([]), '');
 });
 
-test('groupJobsByStage groups jobs under their stage, in first-seen stage order', () => {
+test('groupJobsByStage orders stages by execution order (min job id), grouping jobs', () => {
 	const jobs = [
 		{ id: 10, name: 'compile', stage: 'build', status: 'success' },
 		{ id: 11, name: 'lint', stage: 'build', status: 'success' },
 		{ id: 21, name: 'unit', stage: 'test', status: 'success' },
-		{ id: 5, name: 'deploy', stage: 'deploy', status: 'manual' }
+		{ id: 30, name: 'deploy', stage: 'deploy', status: 'manual' }
 	];
 	const groups = groupJobsByStage(jobs);
 	assert.deepEqual(
@@ -28,6 +28,55 @@ test('groupJobsByStage groups jobs under their stage, in first-seen stage order'
 	assert.deepEqual(
 		groups[1].jobs.map((j) => j.name),
 		['unit']
+	);
+});
+
+test('groupJobsByStage orders stages by execution order even when the API lists jobs newest-first', () => {
+	// GitLab's /pipelines/:id/jobs returns jobs in DESCENDING id order, so the LAST
+	// stage appears first in the response. Stage order must still follow execution
+	// (min job id per stage), not first-seen. (GCM-24 — real gitlab.com pipeline.)
+	const jobs = [
+		{ id: 500, name: 'commit_changes', stage: 'commit_job_changes', status: 'success' },
+		{ id: 400, name: 'default_helm_package', stage: 'package', status: 'success' },
+		{ id: 300, name: 'default_sign', stage: 'sign', status: 'success' },
+		{ id: 200, name: 'default_build', stage: 'build', status: 'success' },
+		{ id: 150, name: 'SAST-checkov', stage: 'sast', status: 'success' },
+		{ id: 140, name: 'SAST-trivy-fs', stage: 'sast', status: 'success' },
+		{ id: 100, name: 'get_unique_semversion', stage: '.pre', status: 'success' }
+	];
+	const groups = groupJobsByStage(jobs);
+	assert.deepEqual(
+		groups.map((g) => g.stage),
+		['.pre', 'sast', 'build', 'sign', 'package', 'commit_job_changes']
+	);
+});
+
+test('groupJobsByStage anchors stage order on the earliest (min) id, robust to a retried job', () => {
+	// A retried early-stage job gets a NEW high id; the stage's ORIGINAL low id must
+	// still anchor its position (min over all jobs, not the deduped latest).
+	const jobs = [
+		{ id: 100, name: 'build', stage: 'build', status: 'failed' }, // original
+		{ id: 500, name: 'build', stage: 'build', status: 'success' }, // retry (latest)
+		{ id: 200, name: 'test', stage: 'test', status: 'success' }
+	];
+	const groups = groupJobsByStage(jobs);
+	assert.deepEqual(
+		groups.map((g) => g.stage),
+		['build', 'test']
+	);
+	assert.equal(groups[0].jobs[0].id, 500); // shows the retried (latest) build
+});
+
+test('groupJobsByStage honors an explicit stage order when provided', () => {
+	const jobs = [
+		{ id: 300, name: 'a', stage: 'build', status: 'success' },
+		{ id: 100, name: 'b', stage: 'test', status: 'success' } // lower id, but runs later
+	];
+	// Explicit order (e.g. from GitLab GraphQL) overrides the min-id heuristic.
+	const groups = groupJobsByStage(jobs, ['build', 'test']);
+	assert.deepEqual(
+		groups.map((g) => g.stage),
+		['build', 'test']
 	);
 });
 
