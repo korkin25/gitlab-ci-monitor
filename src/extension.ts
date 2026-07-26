@@ -3,6 +3,7 @@ import {
 	commands,
 	workspace,
 	extensions,
+	env,
 	Uri,
 	ExtensionContext,
 	TreeView,
@@ -50,7 +51,7 @@ import {
 	LogStream,
 	TailResult
 } from './log-stream';
-import { TokenStore } from './token-store';
+import { TokenStore, patCreationUrl } from './token-store';
 
 // Job-log terminals, keyed by job id, so a second "view log" reuses the live one.
 const logTerminals = new Map<number, Terminal>();
@@ -315,6 +316,29 @@ export async function activate(context: ExtensionContext) {
 			}
 			await tokenStore.set(domain, token.trim());
 			window.setStatusBarMessage(`GitLab token saved for ${domain}`, 3000);
+			updateAllPipelinesStatus(provider);
+		})
+	);
+
+	// Web sign-in: open the host's token-creation page (name + scopes pre-filled) in the
+	// browser, then paste the created token. Works on any GitLab (no OAuth app needed).
+	context.subscriptions.push(
+		commands.registerCommand('gitlabCiMonitor.signIn', async () => {
+			const domain = await pickDomain('Which GitLab host do you want to sign in to?');
+			if (!domain) {
+				return;
+			}
+			await env.openExternal(Uri.parse(patCreationUrl(domain, 'vscode-gitlab-ci-monitor', 'api')));
+			const token = await window.showInputBox({
+				prompt: `A GitLab token page opened for ${domain}. Click "Create", then paste the token here.`,
+				password: true,
+				ignoreFocusOut: true
+			});
+			if (!token) {
+				return;
+			}
+			await tokenStore.set(domain, token.trim());
+			window.setStatusBarMessage(`Signed in to ${domain}`, 3000);
 			updateAllPipelinesStatus(provider);
 		})
 	);

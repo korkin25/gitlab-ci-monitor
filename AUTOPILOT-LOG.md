@@ -2,6 +2,22 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-40: web sign-in + multi-GitLab (already supported) discoverability
+
+- **User ask:** support several GitLab instances (public + private) and web-based auth (OAuth or
+  similar). **Finding:** multi-host is ALREADY supported — `getAllConfigs`/`getExtensionSettings` key
+  everything by the git-remote host, tokens are per-host in SecretStorage, `setToken` already picks
+  the host. Confirmed; no code needed for #1.
+- **Auth (user chose "web-PAT" over full OAuth):** OAuth apps are per-instance (no universal
+  client_id) and gitlab.com tokens expire (2h → refresh) — heavy. So added **"Sign in to GitLab
+  (Web)"** (`gitlabCiMonitor.signIn`): opens `patCreationUrl(host,'vscode-gitlab-ci-monitor','api')`
+  (`/-/user_settings/personal_access_tokens?name=…&scopes=api`) in the browser via `env.openExternal`,
+  then stores the pasted token per host. Works on any instance, zero-dep, no refresh. Full OAuth PKCE
+  deferred (would need a registered gitlab.com OAuth app).
+- **Discoverability (user couldn't find "Set GitLab Token"):** added `viewsWelcome` on both views with
+  **Sign in to GitLab** / **Set it manually** buttons shown when empty, plus a sign-in icon in the
+  view title. `patCreationUrl` is pure/tested.
+
 ## 2026-07-26 — GCM-38/39: live log as tail + loading spinner for pipelines
 
 - **GCM-38 — live log is a `tail`.** Big logs made the live view slow because we downloaded the whole

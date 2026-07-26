@@ -101,6 +101,12 @@
 				"category": "GitLab CI"
 			},
 			{
+				"command": "gitlabCiMonitor.signIn",
+				"title": "Sign in to GitLab (Web)",
+				"category": "GitLab CI",
+				"icon": "$(sign-in)"
+			},
+			{
 				"command": "gitlabCiMonitor.setToken",
 				"title": "Set GitLab Token (Secret Storage)",
 				"category": "GitLab CI",
@@ -126,10 +132,25 @@
 				}
 			]
 		},
+		"viewsWelcome": [
+			{
+				"view": "gitlabCiMonitor.explorer",
+				"contents": "No GitLab pipelines to show yet.\n[Sign in to GitLab](command:gitlabCiMonitor.signIn)\nThis opens a token page in your browser — click Create, then paste the token.\nAlready have a token? [Set it manually](command:gitlabCiMonitor.setToken).\nMake sure a folder with a `.gitlab-ci.yml` is open in the workspace."
+			},
+			{
+				"view": "gitlabCiMonitor.scm",
+				"contents": "No GitLab pipelines to show yet.\n[Sign in to GitLab](command:gitlabCiMonitor.signIn)\nThis opens a token page in your browser — click Create, then paste the token.\nAlready have a token? [Set it manually](command:gitlabCiMonitor.setToken)."
+			}
+		],
 		"menus": {
 			"view/title": [
 				{
 					"command": "gitlabCiMonitor.refresh",
+					"when": "view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm",
+					"group": "navigation"
+				},
+				{
+					"command": "gitlabCiMonitor.signIn",
 					"when": "view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm",
 					"group": "navigation"
 				}

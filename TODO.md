@@ -19,7 +19,15 @@ published version, else the Marketplace rejects it and the number is burned).
 **`1.1.8` (PRE-RELEASE) is LIVE** — GCM-26…36 shipped to the pre-release channel for testing (stable
 stays `1.0.0`). GCM-37 (drop redundant release "Skip" steps) merged to `dev`.
 
-**In flight — GCM-38/39** on `feature/GCM-38-log-tail-loading`:
+**In flight — GCM-40** on `feature/GCM-40-web-signin`: **web sign-in** — "Sign in to GitLab (Web)"
+opens the host's PAT page (name + `api` scope pre-filled) in the browser → paste token → stored per
+host. Empty tree shows a **Sign in** button (`viewsWelcome`) + a title-bar sign-in icon (the user
+couldn't find "Set GitLab Token" in the palette). **Multi-GitLab was already supported** (host from
+git remote, per-host tokens) — no code needed for that. Full OAuth PKCE deferred (per-instance app +
+token refresh). `patCreationUrl` in `src/token-store.ts` (tested, 86 tests). **Next:** PR → `dev` →
+`rc`.
+
+**Shipped in `1.1.12` (pre-release) — GCM-38/39** on `feature/GCM-38-log-tail-loading`:
 - **GCM-38 — live log is a `tail`.** Fetch only the last ~200 lines via HTTP `Range`
   (`fetchJobTraceRange`), then append only new bytes by offset; `startLogStream` is byte-offset based
   (`fetchTail`), with a full-body fallback if `Range` is ignored. Big logs open instantly.
