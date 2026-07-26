@@ -16,15 +16,20 @@ VS Code Marketplace + Open VSX, with a GitHub Release (`v0.8.0`) carrying the `.
   `rc` `increment: None` + `next-version` bumped past the burned `0.6.10`. Release timeline:
   `0.6.10` (buggy pre-release, superseded) → `0.7.14` (fixed pre-release) → **`0.8.0`** (stable).
 
-**Release-cadence rule (odd/even).** `next-version` is now **`0.10.0`** (opened for the next cycle
-right after shipping `0.8.0`). Each stable cycle bumps `next-version` by **two** even minors; the
-odd minor in between is the pre-release channel (this cycle: rc → `0.9.<N>`, stable → `0.10.0`).
-**Never let a pre-release outrank the last stable** — always dry-run GitVersion locally before a
-`rc`/`release` push (`docker run --rm -v "$PWD:/repo" gittools/gitversion:6.8.2 /repo /showvariable
-MajorMinorPatch`).
+**GCM-25 — version scheme SIMPLIFIED (replaces the odd/even scheme).** Each promotion now bumps a
+higher SemVer position: `dev` = Patch (not published), `rc` = Minor → **pre-release**, `release` =
+Major → **stable**. `release.yml` publishes plain `X.Y.Z` (rc → `major.minor.<commit count>`,
+release → `majorMinorPatch`); no more `MINOR-1` / odd-even. `next-version` seeds the first cycle;
+after a stable ships, its tag drives the increments. Dry-run gate before any `rc`/`release` push
+stays mandatory (`docker run … gittools/gitversion:6.8.2 /repo /showvariable MajorMinorPatch`).
 
-**Next action:** none pending — agree the next feature with the user (test-first). New work → a
-`feature/GCM-<n>-*` branch off `dev`.
+**Pending release (this cycle):** `next-version = 0.10.0`. Dry-run verified: `rc` → pre-release
+**`0.10.5`** (`> 0.9.4` live floor), `release` → stable **`1.0.0`**. `GCM-24` (stage execution
+order, already on `dev`) ships in it. Marketplace floor is `0.9.4` (a pre-release from an
+interrupted push before the scheme change).
+
+**Next action:** merge `GCM-25` (PR) → `dev`; then (on user "go") promote `dev` → `rc` (publishes
+`0.10.5`) → `release` (publishes stable `1.0.0`).
 
 **Shipped so far (see `CHANGELOG.md`):** `GCM-1`…`GCM-22` — multi-root tree in Explorer + Source
 Control, **stage/dependency job tree**, **live-streaming job log**, status bar, smart failure
