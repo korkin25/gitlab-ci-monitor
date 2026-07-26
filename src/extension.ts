@@ -87,15 +87,17 @@ export async function activate(context: ExtensionContext) {
 
 	context.subscriptions.push(initStatusBar());
 
-	// open a pipeline / job in the browser
-	context.subscriptions.push(
-		commands.registerCommand('pipeline.click', (arg: any) => {
-			const url = typeof arg === 'string' ? arg : arg?.webUrl;
-			if (!url) {
-				return;
-			}
+	// open a pipeline / job in the browser (pipeline.open is the same, with a
+	// pipeline-specific title for the right-click menu)
+	const openInBrowser = (arg: any) => {
+		const url = typeof arg === 'string' ? arg : arg?.webUrl;
+		if (url) {
 			commands.executeCommand('vscode.open', Uri.parse(url));
-		})
+		}
+	};
+	context.subscriptions.push(
+		commands.registerCommand('pipeline.click', openInBrowser),
+		commands.registerCommand('pipeline.open', openInBrowser)
 	);
 
 	context.subscriptions.push(

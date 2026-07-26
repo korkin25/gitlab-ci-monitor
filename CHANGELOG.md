@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GCM-34 — finish flash.** When a pipeline or job transitions into a finished state, its status
+  icon flashes for ~⅓ s — **✨** on success, **💥** on failure (⚪/🔵 for canceled/skipped) — then
+  reverts to the normal icon, as a lightweight "something just happened" cue. Pure `shouldFlash` in
+  `src/flash.ts`; the label is swapped in place (no re-fetch) and a single timer reverts it.
+- **GCM-33 — "Open pipeline in GitLab" in the pipeline right-click menu** (`pipeline.open`), alongside
+  "Open commit".
+
 - **GCM-31 — show run durations.** Every pipeline and job now shows how long it took: a live-ticking
   elapsed time while running (the tree refreshes each poll only while something is running), and the
   final run time once finished (`✅  compile · 12s`). Pure helpers `formatDuration` /
@@ -27,9 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   status-driven (`jobItemRunning`/`jobItemManual`/`jobItemRetryable`) so only the applicable action
   shows. New REST wrappers `retryJob`/`cancelJob`/`playJob` (`src/gitlab-api.ts`); after an action the
   affected pipeline's cached jobs are invalidated so the change shows immediately.
-- **GCM-28 — open a pipeline's commit in GitLab from the right-click menu.** A new "Open commit in
-  GitLab" action resolves the commit page from the pipeline's `web_url` + `sha`
-  (`commitUrl` in `src/gitlab-api.ts`).
+- **GCM-28/33 — open a pipeline or its commit in GitLab from the right-click menu.** "Open commit in
+  GitLab" resolves the commit page from the pipeline's `web_url` + `sha` (`commitUrl` in
+  `src/gitlab-api.ts`); "Open pipeline in GitLab" opens the pipeline itself (`pipeline.open`).
 
 ### Changed
 
@@ -52,9 +59,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GCM-32 — expanding a pipeline whose jobs failed to load no longer stays permanently empty.** A
   timed-out/failed `getPipelineJobs` used to be cached as "no jobs" (for up to the 10-minute
   finished-TTL), so the pipeline showed expanded-but-empty forever. Now a fetch failure propagates
-  instead of being swallowed, is **not** cached, and the extension **keeps retrying automatically**:
-  it schedules a refresh of the node every few seconds until the jobs load — retrying only while the
-  node stays expanded (a collapsed node stops the loop), at most one retry pending per pipeline.
+  instead of being swallowed, is **not** cached, and the extension **keeps re-fetching in the
+  background** (every few seconds) any pipeline whose jobs failed to load — regardless of whether the
+  node is still expanded — so the data finishes loading and is ready in the cache when you come back
+  to it. A pipeline that drops out of the list is dropped from the retry queue.
 
 - **GCM-24 — show pipeline stages in execution order, not reversed.** The stage tree listed stages
   in the order GitLab's `/pipelines/:id/jobs` returns jobs — which is **newest-first (descending

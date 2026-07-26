@@ -21,10 +21,12 @@ published version, else the Marketplace rejects it and the number is burned).
 jobs; (28) right-click a pipeline → **open its commit**; (29→30) **removed pipeline "Retry"** entirely,
 added inline **Stop** (running pipeline/job), **Open job log** (every job), **Run new pipeline**
 (finished); (31) **run durations** on every pipeline/job (live while running, final when done); (32)
-**fixed "expanded-but-empty" pipelines** (a timed-out jobs fetch is no longer cached as "no jobs").
-New: `runPipeline`/`retryJob`/`cancelJob`/`playJob`/`commitUrl` (`gitlab-api.ts`), `src/duration.ts`.
-Group-(a) green, **77 tests**. **Next:** PR → `dev`, then `dev` → `rc` (pre-release `1.1.<N>` for
-testing). **Stable `release` on hold** (user: rc only for now).
+**fixed "expanded-but-empty" pipelines** — a timed-out jobs fetch is no longer cached, and a
+**background queue keeps re-fetching** it until it loads (regardless of expand state); (33) **"Open
+pipeline in GitLab"** menu item; (34) **finish flash** — icon flashes ✨/💥 on success/fail then
+reverts. New: `runPipeline`/`retryJob`/`cancelJob`/`playJob`/`commitUrl` (`gitlab-api.ts`),
+`src/duration.ts`, `src/flash.ts`. Group-(a) green, **80 tests**. **Next:** PR → `dev`, then `dev` →
+`rc` (pre-release `1.1.<N>` for testing). **Stable `release` on hold** (user: rc only for now).
 
 **Shipped (see `CHANGELOG.md`):** `GCM-1`…`GCM-25` — multi-root tree in Explorer + Source Control,
 **stage/dependency job tree** (ordered by execution), **live-streaming job log**, status bar, smart

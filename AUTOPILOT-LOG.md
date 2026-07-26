@@ -2,6 +2,22 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-33/34: open-pipeline menu item + finish flash
+
+- **GCM-33 — "Open pipeline in GitLab"** added to the pipeline right-click menu (`pipeline.open`,
+  same handler as `pipeline.click`).
+- **GCM-34 — finish flash.** On a status transition into a finished state the node's icon flashes
+  briefly — ✨ success, 💥 failed (⚪/🔵 canceled/skipped) — then reverts. Implemented by swapping the
+  node's `label` in place (no re-fetch): `flashableLabel` stores the normal label and returns the
+  bright one while `flashUntil[key]` is live; `startFlash` is called from `trackStatus` (pipelines)
+  and `buildStageTree` (jobs, vs `lastJobStatus`); one `ensureFlashClear` timer restores labels and
+  re-renders after `FLASH_MS` (330ms). Pure `shouldFlash` in `src/flash.ts` (transition into
+  success/failed/canceled/skipped) is unit-tested; the visual is group-(b).
+- **GCM-32 reworked → background retry.** The failed-jobs retry is no longer "while expanded" — a
+  `jobRetryQueue` + single timer re-fetch in the BACKGROUND (every 3s) any pipeline whose jobs failed
+  to load, regardless of expand state, so the data is ready when the user returns; pipelines that drop
+  out of the list are removed from the queue.
+
 ## 2026-07-26 — GCM-30/31/32: stop/logs/run buttons, durations, cache fix
 
 - **GCM-30 (supersedes GCM-29's retry tweak).** Removed the pipeline-level **Retry** action entirely

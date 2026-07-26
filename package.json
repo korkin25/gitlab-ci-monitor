@@ -84,6 +84,12 @@
 				"icon": "$(play)"
 			},
 			{
+				"command": "pipeline.open",
+				"title": "Open pipeline in GitLab",
+				"category": "GitLab CI",
+				"icon": "$(globe)"
+			},
+			{
 				"command": "pipeline.openCommit",
 				"title": "Open commit in GitLab",
 				"category": "GitLab CI",
@@ -148,6 +154,11 @@
 					"command": "pipeline.run",
 					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem =~ /^pipelineItem/",
 					"group": "1_actions"
+				},
+				{
+					"command": "pipeline.open",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem =~ /^pipelineItem/",
+					"group": "2_open"
 				},
 				{
 					"command": "pipeline.openCommit",
