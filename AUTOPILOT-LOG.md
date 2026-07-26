@@ -2,7 +2,37 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
-## 2026-07-26 — GCM-22: latest-failure-at-startup + self-dismissing toast
+## 2026-07-26 — GCM-23: fix the release version scheme (odd/even)
+
+- **Fixed the odd/even version scheme so a clean stable can supersede the burned `0.6.10`.** Two
+  edits to `GitVersion.yml`: `rc` `increment: Minor` → **`None`** (so `rc` keeps
+  `MajorMinorPatch == next-version` and release.yml's `minor-1` produces the odd minor just below the
+  even stable, as intended), and `next-version` `0.6.0` → **`0.8.0`** (a clean even minor above the
+  already-published `0.6.10`). Updated `release.yml`'s versioning-convention comments to match.
+- **Verified with a local GitVersion dry-run before any push** (the gate from `GCM-23`): on `rc`,
+  `MajorMinorPatch=0.8.0` → release.yml pre-release **`0.7.10`** (odd, `> 0.6.10`, `< 0.8.0`); on a
+  non-pushed `release` merge, `MajorMinorPatch=0.8.0` → stable **`0.8.0`** (even, above everything).
+  Local `rc`/`release` branches were reset to `origin`; nothing was pushed during the dry-run.
+- **Next:** merge PR #18 → `dev`, then promote `dev` → `rc` (publishes `0.7.10`) → `release`
+  (publishes stable `0.8.0` + GitHub Release). This is release infra, not one of the three features.
+
+## 2026-07-26 — Release 0.6.10 (pre-release) + GCM-23: version-scheme bug found
+
+- **Published `0.6.10` (pre-release) with GCM-20/21/22.** After merging the three features to `dev`
+  (PRs #15/#16/#17, all CI green), promoted `dev` → `rc` (fast-forward). `release.yml` published a
+  **pre-release** to the VS Code Marketplace (`Published korkin25.gitlab-ci-monitor v0.6.10`) and
+  Open VSX (`Published korkin25.gitlab-ci-monitor v0.6.10`). All three features are live via the
+  pre-release channel.
+- **Stopped before the stable `release` (user decision).** A stable cut computes GitVersion `0.6.1`
+  (`release` increments Patch over `next-version: 0.6.0`), which is **below** the live `0.6.10`, so
+  the Marketplace would reject it. Verified locally with a GitVersion dry-run on a non-pushed
+  `release` merge (`/showvariable MajorMinorPatch` → `0.6.1`). Reset the local `release` back to
+  `origin/release`; **no stable publish was attempted.**
+- **Filed `GCM-23`** (see `TODO.md`) for the pre-existing odd/even release-version bug: `rc`'s
+  `increment: Minor` makes GitVersion `0.7.0` on `rc`, and `release.yml`'s `MINOR-1` formula yields
+  `0.6.<commitCount>` instead of the intended `0.5.<N>`, so the pre-release lands above the stable.
+  Fix design + a local-dry-run gate are recorded in `TODO.md`. This is release infra, not one of the
+  three feature changes.
 
 - **Announce a branch's latest failure at startup.** Failure notifications previously suppressed
   everything on the first poll (GCM-11's baseline), so you never learned at startup that your latest

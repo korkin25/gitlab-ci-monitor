@@ -10,12 +10,14 @@
 # VERSIONING CONVENTION. Marketplace versions must be plain X.Y.Z — a `-rc.N` SemVer
 # suffix is NOT accepted by the VS Code Marketplace. Pre-releases therefore publish a
 # *distinct, increasing* X.Y.Z with the `--pre-release` flag rather than a SemVer
-# pre-release suffix:
-#   * release: V = majorMinorPatch                    (e.g. 0.5.0), stable
-#   * rc:      V = <major>.<minor>.<preReleaseNumber> (e.g. 0.5.8), --pre-release
-# Future refinement: Microsoft recommends reserving ODD minor numbers for pre-releases
-# and EVEN minors for stable, so the two streams never collide on a version — adopt
-# that when the release cadence needs it. See
+# pre-release suffix. We follow Microsoft's ODD-minor-for-pre-release / EVEN-minor-for
+# -stable scheme so the two channels never collide on the single increasing version
+# line (see GitVersion.yml, GCM-23):
+#   * release: V = majorMinorPatch          (e.g. 0.8.0), even minor, stable
+#   * rc:      V = major.(minor-1).preReleaseNumber (e.g. 0.7.10), odd minor,
+#              --pre-release — strictly below the stable it leads to. `rc` keeps
+#              majorMinorPatch == next-version (increment: None), so minor-1 is the
+#              odd minor just below the even stable. See
 # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions
 #
 # Publishing is opt-in: each marketplace step runs only when its token secret is set

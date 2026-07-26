@@ -12,8 +12,25 @@
 #
 # THE ONE VERSION KNOB is `next-version`. There are no tags, so bump it to cut a new
 # minor/major, then merge dev -> rc -> release.
+#
+# ODD/EVEN MINOR SCHEME (GCM-23). The Marketplace keeps ONE increasing version
+# line across the pre-release and stable channels, so we split them by parity:
+#   * `next-version` is the target STABLE and MUST be an EVEN minor (e.g. 0.8.0).
+#   * `release` publishes that even-minor X.Y.Z (stable).
+#   * `rc` publishes the ODD minor just below it — X.(Y-1).<preReleaseNumber> —
+#     via release.yml, so every pre-release sits strictly below the stable it
+#     leads to, and above the previous cycle's stable.
+# For that X.(Y-1) math to hold, `rc` must NOT increment the minor: it keeps
+# MajorMinorPatch == next-version (increment: None), and release.yml subtracts
+# one minor.
+#
+# Before GCM-23, `rc` had `increment: Minor`, so GitVersion computed one minor
+# ABOVE next-version and `MINOR-1` landed back ON the stable's even minor — they
+# collided and a pre-release could outrank the stable. That shipped 0.6.10 as a
+# pre-release, so next-version now starts at 0.8.0: a clean even minor above the
+# burned 0.6.10.
 mode: ContinuousDelivery
-next-version: 0.6.0
+next-version: 0.8.0
 
 branches:
     dev:
@@ -25,7 +42,7 @@ branches:
     rc:
         regex: ^(origin/)?rc$
         label: rc
-        increment: Minor
+        increment: None
         source-branches: [dev]
     release:
         regex: ^(origin/)?release$
