@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **GCM-24 — show pipeline stages in execution order, not reversed.** The stage tree listed stages
+  in the order GitLab's `/pipelines/:id/jobs` returns jobs — which is **newest-first (descending
+  id)**, so the *last* stage (e.g. `commit_job_changes`) showed up *first* and `.pre` last. Stages
+  are now ordered by the **smallest job id in each stage**: GitLab creates a pipeline's jobs stage
+  by stage, so the earliest stage holds the lowest ids — reproducing the order GitLab's own UI shows
+  (`.pre` → … → `.post`). The min is taken over all jobs (not the deduped latest) so a retried job's
+  new high id doesn't drag its stage later; `groupJobsByStage` also accepts an optional explicit
+  stage order for future use. (`src/job-order.ts`.)
+
 - **GCM-23 — fix the odd/even release version scheme so a clean stable can ship.** Promoting
   `dev` → `rc` had published a pre-release **`0.6.10`** (not the intended `0.5.<N>`), which is
   **above** the `0.6.1` a stable would compute — and since the Marketplace keeps one increasing

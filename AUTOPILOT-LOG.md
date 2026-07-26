@@ -2,6 +2,17 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-24: stage tree ordered by execution, not API order
+
+- **Bug (reported against 0.8.0):** the stage tree showed stages reversed — `commit_job_changes`
+  first, `.pre` last — because `groupJobsByStage` ordered stages by first-seen in the jobs response,
+  and GitLab's `/pipelines/:id/jobs` returns jobs **newest-first (descending id)**.
+- **Fix:** order stages by the **minimum job id per stage** (over all jobs, robust to retries), which
+  matches GitLab's stage-by-stage job creation and reproduces the UI order (`.pre` → … → `.post`).
+  Pure change in `src/job-order.ts`; `buildStageTree` already calls `groupJobsByStage(jobs)`, so no
+  tree-view change. Added an optional explicit `stageOrder` param (for a future GraphQL-authoritative
+  order). TDD: updated the stage-order test + added a newest-first-API repro and a retry-anchor test.
+
 ## 2026-07-26 — Stable 0.8.0 released + opened next cycle (next-version 0.10.0)
 
 - **Released stable `0.8.0`** (user "go"). Promoted `dev` → `rc` → `release`: `rc` published
