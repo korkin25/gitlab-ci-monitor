@@ -1,38 +1,33 @@
 ---
-# GitVersion — the single source of the version (image, chart, package/extension).
-# Branching model: feature/* -> dev -> rc -> release. No `main` branch, NO git tags.
+# GitVersion — the single source of the version (the .vsix / marketplace version).
+# Branching model: feature/* -> dev -> rc -> release. No hand-written versions.
 #
-# This is a clean GitVersion 6.x config. (An older "5.x-style" config breaks with a
-# `next-version` under GitVersion 6.8+: "Failed to parse X into a Semantic Version".
-# That is why it was rewritten from scratch — keep it minimal and 6.x-native.)
+# SCHEME: each promotion bumps a higher SemVer position, so the stage a change is
+# in maps to a version lane (steady state, once a stable tag exists):
 #
-# Per branch the release.yml picks the right variable:
-#   rc       -> SemVer          e.g. 0.1.0-rc.8   (pre-release publish)
-#   release  -> MajorMinorPatch e.g. 0.1.0        (clean, stable publish)
+#   branch    increment   channel          published
+#   ------    ---------   -------          ---------
+#   dev       Patch       (not published)  X.0.1, X.0.2  (local test builds)
+#   rc        Minor       pre-release       X.1.0, X.1.1  (--pre-release publish)
+#   release   Major       stable           (X+1).0.0     (clean publish)
 #
-# THE ONE VERSION KNOB is `next-version`. There are no tags, so bump it to cut a new
-# minor/major, then merge dev -> rc -> release.
+# So: patch-iterate on `dev`; merge to `rc` -> bumps MINOR and publishes a
+# pre-release; keep merging to `rc` for more; merge to `release` -> bumps MAJOR and
+# publishes the stable. Every publish is strictly greater than the last across BOTH
+# channels (rc on a new minor, release on a new major), which is all the Marketplace
+# requires (it shares one increasing version line and rejects a `-rc.N` suffix).
 #
-# ODD/EVEN MINOR SCHEME (GCM-23). The Marketplace keeps ONE increasing version
-# line across the pre-release and stable channels, so we split them by parity:
-#   * `next-version` is the target STABLE and MUST be an EVEN minor (e.g. 0.8.0).
-#   * `release` publishes that even-minor X.Y.Z (stable).
-#   * `rc` publishes the ODD minor just below it — X.(Y-1).<preReleaseNumber> —
-#     via release.yml, so every pre-release sits strictly below the stable it
-#     leads to, and above the previous cycle's stable.
-# For that X.(Y-1) math to hold, `rc` must NOT increment the minor: it keeps
-# MajorMinorPatch == next-version (increment: None), and release.yml subtracts
-# one minor.
+# release.yml maps GitVersion's output to a plain X.Y.Z:
+#   rc      -> major.minor.<preReleaseNumber>   (commit counter drives increasing patch)
+#   release -> majorMinorPatch
 #
-# Before GCM-23, `rc` had `increment: Minor`, so GitVersion computed one minor
-# ABOVE next-version and `MINOR-1` landed back ON the stable's even minor — they
-# collided and a pre-release could outrank the stable. That shipped 0.6.10 as a
-# pre-release, so next-version now starts at 0.8.0: a clean even minor above the
-# burned 0.6.10.
+# THE ONE KNOB is `next-version`. After a stable ships, its tag (vX.Y.Z) becomes the
+# floor and the branch increments drive everything; `next-version` only seeds the
+# first cycle. It is 0.10.0 here to start rc at 0.10.x — clear of the already-published
+# 0.9.4 pre-release (a higher next-version suppresses rc's minor bump, so in THIS first
+# cycle dev and rc share minor 10; from the next cycle on, tags make dev/rc/release
+# land on the patch/minor/major lanes shown above).
 mode: ContinuousDelivery
-# Even minor = the next STABLE target. Bump by TWO each stable cycle (odd minors
-# are the pre-release channel): 0.8.0 shipped, so the next cycle heads to 0.10.0
-# — its rc pre-releases are 0.9.<N> (odd, above 0.8.0); its stable is 0.10.0.
 next-version: 0.10.0
 
 branches:
@@ -45,12 +40,12 @@ branches:
     rc:
         regex: ^(origin/)?rc$
         label: rc
-        increment: None
+        increment: Minor
         source-branches: [dev]
     release:
         regex: ^(origin/)?release$
         label: ''
-        increment: Patch
+        increment: Major
         is-release-branch: true
         source-branches: [rc, dev]
     feature:
