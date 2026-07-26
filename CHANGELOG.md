@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GCM-40 — web sign-in, and a visible "Sign in" entry point.** A new **"Sign in to GitLab (Web)"**
+  command opens the target host's personal-access-token page in the browser with the token **name and
+  scope (`api`) pre-filled** — you click Create and paste the token, which is stored per host in
+  Secret Storage. Works on any GitLab instance (no OAuth app needed). The empty tree now shows a
+  **Sign in to GitLab** button (`viewsWelcome`) and a sign-in icon sits in the panel title, so you no
+  longer have to hunt in the Command Palette. Multiple GitLab instances were already supported (host
+  from the git remote, tokens per host) — this makes onboarding each one a click. (`patCreationUrl`
+  in `src/token-store.ts`.)
+
 - **GCM-35 — adaptive polling for near-live updates (no manual Refresh).** The refresh loop is now
   self-scheduling: it polls **fast (~2s) while any pipeline is running** and backs off to the
   configured interval once everything finishes. GitLab has no pipeline-status WebSocket (its own UI

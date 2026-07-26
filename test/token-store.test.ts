@@ -1,6 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SecretStorageLike, TokenStore, resolveToken, secretKey } from '../src/token-store';
+import { SecretStorageLike, TokenStore, resolveToken, secretKey, patCreationUrl } from '../src/token-store';
+
+test('patCreationUrl builds the token page with name + scopes pre-filled', () => {
+	assert.equal(
+		patCreationUrl('gitlab.com', 'vscode-gitlab-ci-monitor', 'api'),
+		'https://gitlab.com/-/user_settings/personal_access_tokens?name=vscode-gitlab-ci-monitor&scopes=api'
+	);
+});
+
+test('patCreationUrl normalizes a host given with scheme or trailing slash', () => {
+	assert.equal(
+		patCreationUrl('https://gitlab.example.com/', 'x', 'read_api'),
+		'https://gitlab.example.com/-/user_settings/personal_access_tokens?name=x&scopes=read_api'
+	);
+});
 
 class FakeSecrets implements SecretStorageLike {
 	private m = new Map<string, string>();

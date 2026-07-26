@@ -12,6 +12,17 @@ export function secretKey(domain: string): string {
 	return `gitlabCiMonitor.token.${domain}`;
 }
 
+/**
+ * The GitLab page for creating a personal access token, with the name and scopes
+ * pre-filled via query params — so "Sign in" just opens this in the browser and the
+ * user clicks Create. Works on any instance (no OAuth app needed).
+ */
+export function patCreationUrl(host: string, name: string, scopes: string): string {
+	const h = (host || '').replace(/^https?:\/\//, '').replace(/\/+$/, '');
+	const params = new URLSearchParams({ name, scopes }).toString();
+	return `https://${h}/-/user_settings/personal_access_tokens?${params}`;
+}
+
 /** Resolve a token from the available sources, most trusted first:
  *  SecretStorage → settings.json → the GITLAB_TOKEN env var. Empty strings
  *  count as absent. */

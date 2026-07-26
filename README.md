@@ -34,7 +34,7 @@ Monitor your GitLab pipelines in real time, right inside VS Code — across **ev
 - **Run duration.** Every pipeline and job shows how long it took — a **live-ticking elapsed time** while it runs, and the final run time once it finishes (e.g. `✅  compile · 12s`, `🏃  deploy · 1m 4s`).
 - **Finish flash.** The instant a pipeline or job finishes, its icon flashes for a moment — a **✨ sparkle** when it succeeds, a **💥 burst** when it fails — then settles back to the normal status icon, so a change catches your eye.
 - **Live job log on click — a true `tail`.** **Click a job** to stream its log; right-click opens it in GitLab. It opens the job's trace in a terminal that **tails in real time** — it fetches only the **last ~200 lines** (via an HTTP range request, so a huge log opens instantly) and then appends only the newly-written bytes as the job runs, ANSI colors intact, auto-scrolling. The full log stays in GitLab; the terminal is the "what's happening now" view a devops wants. Closing the terminal stops the stream; re-opening a still-running job re-focuses it. (GitLab has no trace WebSocket, so this is efficient incremental range-polling.)
-- **Token in VS Code Secret Storage.** Your GitLab token is kept in the OS keychain via VS Code Secret Storage — not in plaintext settings. A legacy `settings.json` token is auto-migrated, and a `GITLAB_TOKEN` env var still works as a fallback (see [Token](#token-required)).
+- **Web sign-in & multiple GitLabs.** **Sign in via the browser** — the extension opens the host's token page with the scope pre-filled; you click Create and paste it back. Works across **several GitLab instances at once** (`gitlab.com` + a private `gitlab.company.com`): the host comes from each repo's git remote and tokens are stored **per host** in VS Code Secret Storage (OS keychain, not plaintext). A legacy `settings.json` token is auto-migrated, and a `GITLAB_TOKEN` env var still works as a fallback (see [Token](#token-required)).
 - **Live updates, no Refresh needed.** The tree refreshes itself on an **adaptive interval** — polling **faster (~2s) while a pipeline is running** for a near-live feel, and backing off to the configured interval once everything has finished. (GitLab exposes no pipeline-status WebSocket — its own UI polls too — so this is the efficient equivalent; a manual **Refresh** is still available.)
 - **Repo groups collapse by default**, and the active editor's repo auto-expands.
 - **Zero runtime dependencies** — the GitLab API is called via Node's built-in `https`.
@@ -68,12 +68,19 @@ The domain and project are derived from each repo's git remote, so one entry per
 ### Token (required)
 
 A GitLab [Personal Access Token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html)
-with `read_api` scope (or `api` if you want retry/cancel) is required. It is resolved from the
-first source that has it, most secure first:
+with `api` scope (or `read_api` for monitoring only, without the retry/cancel/run actions) is
+required. **Multiple GitLab instances are supported** — the host is taken from each repo's git
+remote, and tokens are stored **per host**, so `gitlab.com` and a private `gitlab.company.com` in the
+same workspace each get their own. It is resolved from the first source that has it, most secure
+first:
 
-1. **VS Code Secret Storage (recommended).** Run **“GitLab CI: Set GitLab Token (Secret Storage)”**
-   from the Command Palette and paste the token. It is stored in the OS keychain, never in a file.
-   Use **“Clear GitLab Token (Secret Storage)”** to remove it.
+0. **Sign in via the web (easiest).** Run **“GitLab CI: Sign in to GitLab (Web)”** (or click **Sign
+   in to GitLab** in the panel when it is empty). It opens the host's token-creation page in your
+   browser with the name and scope pre-filled — click **Create** and paste the token back. Works on
+   any GitLab instance.
+1. **VS Code Secret Storage.** Run **“GitLab CI: Set GitLab Token (Secret Storage)”** from the
+   Command Palette (it asks which host if you have several) and paste the token. It is stored in the
+   OS keychain, never in a file. Use **“Clear GitLab Token (Secret Storage)”** to remove it.
 2. **`settings.json`** — a legacy plaintext `"token": "<pat>"` under your host still works, but is
    discouraged. If one is present and Secret Storage has none, the extension copies it into Secret
    Storage on startup and tells you that you can delete the plaintext entry.
@@ -87,6 +94,7 @@ All commands are under the **GitLab CI** category in the Command Palette:
 | Command | What it does |
 |---------|--------------|
 | Refresh | Re-poll every watched repository now. |
+| Sign in to GitLab (Web) | Open the host's token page (name + scope pre-filled) in the browser, then paste the token. |
 | Set GitLab Token (Secret Storage) | Store a token for a host in the OS keychain. |
 | Clear GitLab Token (Secret Storage) | Remove a stored token for a host. |
 | Retry / Cancel pipeline | Also available as inline buttons in the tree. |
