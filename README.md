@@ -13,26 +13,29 @@ Monitor your GitLab pipelines in real time, right inside VS Code — across **ev
 - **Multi-root aware.** Every workspace folder that is a git repo and has a `.gitlab-ci.yml` is watched. Pipelines are grouped per repository, and each pipeline expands into a **stage tree with the job dependency (`needs`) graph**:
   ```
   📦 repo-a · main (20)
-     ✅  123 · success · main
+     ✅  123 · main · 2m 3s
         ✅  build (2)
-           ✅  compile
-           ✅  lint
+           ✅  compile · 41s
+           ✅  lint · 12s
         ✅  test (1)
-           ✅  unit
+           ✅  unit · 1m 8s
               ↳ ✅ compile
         🚦  deploy (1)
            🚦  deploy
               ↳ ✅ unit
   📦 repo-b · dev (20)
-     🏃  456 · running · dev
+     🏃  456 · dev · 34s
   ```
 - **Stage & dependency tree.** Jobs are no longer a flat list: they nest under their **stage** (with an at-a-glance aggregate status per stage), and any job with `needs` expands to show the jobs it depends on — the CI DAG, right in the tree. Stage grouping comes from the REST API; the `needs` edges from GitLab GraphQL (best-effort — a token without GraphQL access simply shows no dependency edges).
 - **Two homes.** The tree shows up under **Source Control** *and* the **Explorer** — pick whichever panel you live in. Opening a file in a project, or selecting a repository in the built-in **Source Control** list, expands that project in the panel — **in place, without switching sidebars or stealing focus**.
 - **Status bar indicator.** The pipeline status of the active editor's repo/branch is shown in the status bar; click it to open the pipeline in GitLab. It follows you as you switch files.
 - **Smart failure notifications.** A notification pops up only when the **latest** pipeline for a branch has `failed` — and only **once per branch failure**. On startup a branch whose latest pipeline is already red is announced (but not older, already-superseded failures); if a newer run on that branch succeeds, no notification. The toast is **self-dismissing** — it needs no click and slides away after a couple of seconds. Toggle with `notifyOnFailed`.
-- **Actions.** Retry or cancel a pipeline from inline buttons; click a pipeline or a job to open it in GitLab.
-- **Live job log.** "Stream job log (live)" opens the job's trace in a terminal that **tails in real time** as the job runs — new output arrives incrementally, ANSI colors intact, auto-scrolling like a real log. Closing the terminal stops the stream; re-opening a still-running job re-focuses it. (GitLab has no trace WebSocket, so the stream is efficient incremental polling of the trace endpoint.)
+- **Actions.** Inline buttons and a right-click menu. On a **pipeline** — **Stop** (running) or **Run new pipeline** (finished) inline; the menu also has **Open pipeline in GitLab** and **Open commit in GitLab**. On a **job** — **Open job log** (live) and **Stop** (running) inline; the menu adds retry (finished), play (manual), and open in GitLab.
+- **Run duration.** Every pipeline and job shows how long it took — a **live-ticking elapsed time** while it runs, and the final run time once it finishes (e.g. `✅  compile · 12s`, `🏃  deploy · 1m 4s`).
+- **Finish flash.** The instant a pipeline or job finishes, its icon flashes for a moment — a **✨ sparkle** when it succeeds, a **💥 burst** when it fails — then settles back to the normal status icon, so a change catches your eye.
+- **Live job log on click.** **Click a job** to stream its log; right-click opens it in GitLab. "Stream job log (live)" opens the job's trace in a terminal that **tails in real time** as the job runs — new output arrives incrementally, ANSI colors intact, auto-scrolling like a real log. Closing the terminal stops the stream; re-opening a still-running job re-focuses it. (GitLab has no trace WebSocket, so the stream is efficient incremental polling of the trace endpoint.)
 - **Token in VS Code Secret Storage.** Your GitLab token is kept in the OS keychain via VS Code Secret Storage — not in plaintext settings. A legacy `settings.json` token is auto-migrated, and a `GITLAB_TOKEN` env var still works as a fallback (see [Token](#token-required)).
+- **Live updates, no Refresh needed.** The tree refreshes itself on an **adaptive interval** — polling **faster (~2s) while a pipeline is running** for a near-live feel, and backing off to the configured interval once everything has finished. (GitLab exposes no pipeline-status WebSocket — its own UI polls too — so this is the efficient equivalent; a manual **Refresh** is still available.)
 - **Repo groups collapse by default**, and the active editor's repo auto-expands.
 - **Zero runtime dependencies** — the GitLab API is called via Node's built-in `https`.
 

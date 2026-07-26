@@ -199,10 +199,34 @@ export function getJobNeeds(
 		.catch(() => new Map<string, string[]>());
 }
 
-export function retryPipeline(conf: RepoConfig, pipelineId: number): Promise<any> {
-	return apiRequest(conf, `/pipelines/${pipelineId}/retry`, 'POST');
-}
-
 export function cancelPipeline(conf: RepoConfig, pipelineId: number): Promise<any> {
 	return apiRequest(conf, `/pipelines/${pipelineId}/cancel`, 'POST');
+}
+
+/** Create a NEW pipeline on `ref` (a fresh run) — distinct from retrying failed jobs. */
+export function runPipeline(conf: RepoConfig, ref: string, transport: Transport = https.request): Promise<any> {
+	return apiRequest(conf, `/pipeline?ref=${encodeURIComponent(ref)}`, 'POST', false, transport);
+}
+
+// --- single-job actions (retry a finished job, cancel a running one, play a manual one) ---
+export function retryJob(conf: RepoConfig, jobId: number, transport: Transport = https.request): Promise<any> {
+	return apiRequest(conf, `/jobs/${jobId}/retry`, 'POST', false, transport);
+}
+
+export function cancelJob(conf: RepoConfig, jobId: number, transport: Transport = https.request): Promise<any> {
+	return apiRequest(conf, `/jobs/${jobId}/cancel`, 'POST', false, transport);
+}
+
+export function playJob(conf: RepoConfig, jobId: number, transport: Transport = https.request): Promise<any> {
+	return apiRequest(conf, `/jobs/${jobId}/play`, 'POST', false, transport);
+}
+
+/** The GitLab commit page for a pipeline, derived from its `web_url` and `sha`.
+ *  e.g. `…/-/pipelines/123` + `abc` → `…/-/commit/abc`. Empty if either is missing. */
+export function commitUrl(pipelineWebUrl: string, sha: string): string {
+	if (!pipelineWebUrl || !sha) {
+		return '';
+	}
+	const base = pipelineWebUrl.replace(/\/-\/pipelines\/.*$/, '');
+	return `${base}/-/commit/${sha}`;
 }

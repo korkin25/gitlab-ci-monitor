@@ -9,7 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **GCM-35 — adaptive polling for near-live updates (no manual Refresh).** The refresh loop is now
+  self-scheduling: it polls **fast (~2s) while any pipeline is running** and backs off to the
+  configured interval once everything finishes. GitLab has no pipeline-status WebSocket (its own UI
+  polls), so this is the efficient equivalent. Pure `nextPollDelay` in `src/poll.ts`;
+  `hasRunningPipelines()` drives it.
+
+- **GCM-34 — finish flash.** When a pipeline or job transitions into a finished state, its status
+  icon flashes for ~⅓ s — **✨** on success, **💥** on failure (⚪/🔵 for canceled/skipped) — then
+  reverts to the normal icon, as a lightweight "something just happened" cue. Pure `shouldFlash` in
+  `src/flash.ts`; the label is swapped in place (no re-fetch) and a single timer reverts it.
+- **GCM-33 — "Open pipeline in GitLab" in the pipeline right-click menu** (`pipeline.open`), alongside
+  "Open commit".
+
+- **GCM-31 — show run durations.** Every pipeline and job now shows how long it took: a live-ticking
+  elapsed time while running (the tree refreshes each poll only while something is running), and the
+  final run time once finished (`✅  compile · 12s`). Pure helpers `formatDuration` /
+  `jobDurationSeconds` / `pipelineDurationSeconds` in `src/duration.ts`.
+- **GCM-30 — Stop / Logs / Run buttons; "Retry pipeline" removed.** Inline buttons now match intent:
+  **Stop** on a running pipeline or job, **Open job log** (live) on every job, **Run new pipeline** on
+  a finished pipeline. The confusing pipeline-level **Retry** action was removed entirely (job retry
+  stays in the job's menu). "Run new pipeline" (`runPipeline` → `POST /pipeline?ref=…`) creates a
+  fresh run; after any action the pipeline's jobs are invalidated so the change shows immediately.
+
+- **GCM-27 — retry / cancel / play jobs and pipelines from the right-click menu.** The context menu
+  now offers actions on both levels: a **pipeline** can be retried or canceled (also still inline);
+  a **job** can be retried (finished), canceled (running), or played (manual). Job context values are
+  status-driven (`jobItemRunning`/`jobItemManual`/`jobItemRetryable`) so only the applicable action
+  shows. New REST wrappers `retryJob`/`cancelJob`/`playJob` (`src/gitlab-api.ts`); after an action the
+  affected pipeline's cached jobs are invalidated so the change shows immediately.
+- **GCM-28/33 — open a pipeline or its commit in GitLab from the right-click menu.** "Open commit in
+  GitLab" resolves the commit page from the pipeline's `web_url` + `sha` (`commitUrl` in
+  `src/gitlab-api.ts`); "Open pipeline in GitLab" opens the pipeline itself (`pipeline.open`).
+
 ### Changed
+
+- **GCM-36 — drop the redundant status word from a pipeline's label.** The status emoji already
+  conveys success/failed/running, so the label is now `#id · ref · duration` instead of
+  `#id · status · ref` (jobs never showed the word).
+
+- **GCM-26 — click a job to stream its log; right-click to open it in GitLab (swapped).** Previously
+  a click opened GitLab and the log was a context-menu action; now the primary click streams the live
+  log (the common case) and GitLab / the job actions live in the right-click menu.
 
 - **GCM-25 — simpler release version scheme (replaces GCM-23's odd/even).** Each promotion now
   bumps a higher SemVer position: `dev` = Patch (unpublished dev builds), `rc` = Minor →
@@ -22,6 +65,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CLAUDE.md`.)
 
 ### Fixed
+
+- **GCM-32 — expanding a pipeline whose jobs failed to load no longer stays permanently empty.** A
+  timed-out/failed `getPipelineJobs` used to be cached as "no jobs" (for up to the 10-minute
+  finished-TTL), so the pipeline showed expanded-but-empty forever. Now a fetch failure propagates
+  instead of being swallowed, is **not** cached, and the extension **keeps re-fetching in the
+  background** (every few seconds) any pipeline whose jobs failed to load — regardless of whether the
+  node is still expanded — so the data finishes loading and is ready in the cache when you come back
+  to it. A pipeline that drops out of the list is dropped from the retry queue.
 
 - **GCM-24 — show pipeline stages in execution order, not reversed.** The stage tree listed stages
   in the order GitLab's `/pipelines/:id/jobs` returns jobs — which is **newest-first (descending

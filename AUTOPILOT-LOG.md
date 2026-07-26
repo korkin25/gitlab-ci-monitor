@@ -2,6 +2,84 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-35/36: adaptive polling + trimmed pipeline label
+
+- **GCM-35 — adaptive polling (live without Refresh).** GitLab has no pipeline-status WebSocket (its
+  own UI polls), so instead of a fixed `setInterval` the refresh loop self-schedules: `pollOnce`
+  re-arms via `nextPollDelay(hasRunningPipelines(), idleMs, fastMs)` — ~2s while running, the
+  configured interval (5s) when idle. Pure `nextPollDelay` in `src/poll.ts` (tested);
+  `hasRunningPipelines()` exposed from `tree-view.ts`. Explained to the user why a real GitLab
+  WebSocket isn't feasible (no PAT-authable pipeline-status socket; zero-dep rule).
+- **GCM-36 — trimmed the pipeline label.** Dropped the `success`/`failed` word (the emoji says it):
+  label is now `#id · ref · duration`.
+
+## 2026-07-26 — GCM-33/34: open-pipeline menu item + finish flash
+
+- **GCM-33 — "Open pipeline in GitLab"** added to the pipeline right-click menu (`pipeline.open`,
+  same handler as `pipeline.click`).
+- **GCM-34 — finish flash.** On a status transition into a finished state the node's icon flashes
+  briefly — ✨ success, 💥 failed (⚪/🔵 canceled/skipped) — then reverts. Implemented by swapping the
+  node's `label` in place (no re-fetch): `flashableLabel` stores the normal label and returns the
+  bright one while `flashUntil[key]` is live; `startFlash` is called from `trackStatus` (pipelines)
+  and `buildStageTree` (jobs, vs `lastJobStatus`); one `ensureFlashClear` timer restores labels and
+  re-renders after `FLASH_MS` (330ms). Pure `shouldFlash` in `src/flash.ts` (transition into
+  success/failed/canceled/skipped) is unit-tested; the visual is group-(b).
+- **GCM-32 reworked → background retry.** The failed-jobs retry is no longer "while expanded" — a
+  `jobRetryQueue` + single timer re-fetch in the BACKGROUND (every 3s) any pipeline whose jobs failed
+  to load, regardless of expand state, so the data is ready when the user returns; pipelines that drop
+  out of the list are removed from the queue.
+
+## 2026-07-26 — GCM-30/31/32: stop/logs/run buttons, durations, cache fix
+
+- **GCM-30 (supersedes GCM-29's retry tweak).** Removed the pipeline-level **Retry** action entirely
+  (`pipeline.retry` command + `retryPipeline` API + menus) — the user found it confusing. Inline
+  buttons now: **Stop** (running pipeline `pipeline.cancel`, running job `pipeline.job.cancel`),
+  **Open job log** (live, `pipeline.job.log`) on every job, **Run new pipeline** on finished
+  pipelines. Renamed the cancel titles to "Stop …". Job retry/play stay in the job's right-click menu.
+  Pipeline `contextValue` simplified to `pipelineItemRunning` / `pipelineItemDone`.
+- **GCM-31 — run durations** on every pipeline/job label: live-ticking elapsed while running, final
+  run time when finished. Pure `src/duration.ts` (`formatDuration`/`jobDurationSeconds`/
+  `pipelineDurationSeconds`, tested with injected `now`). To make running durations tick, the
+  change-detection signature gains a per-poll counter **only while something is running** (idle stays
+  stable, preserving the GCM-12 no-flicker behavior); this also refreshes running jobs each poll.
+- **GCM-32 — fix "expanded but empty" pipelines + auto-retry.** A timed-out `getPipelineJobs` was
+  cached as "no jobs", so the pipeline stayed empty until the 10-min TTL. Now the fetch error
+  propagates (`buildStageTree` no longer swallows it) and `getChildren` does not cache the failure;
+  it also **keeps retrying** — `scheduleJobRetry` fires a node refresh every `JOBS_RETRY_MS` (3s),
+  which re-runs `getChildren` only while the node stays expanded (collapsed → loop stops), one retry
+  pending per pipeline. So a transient timeout self-heals without the user re-expanding.
+- Tests: 77 group-(a) green (duration helpers + earlier http/timer patterns).
+
+## 2026-07-26 — GCM-29: fix "Retry pipeline" confusion + add "Run new pipeline"
+
+- **User report:** the inline "Retry pipeline" icon seemed to do nothing. Cause: it showed on ANY
+  non-running pipeline, but GitLab's `POST /pipelines/:id/retry` only re-runs a pipeline's
+  **failed/canceled** jobs — on a green pipeline it is a no-op, and the only feedback was a brief
+  status-bar message.
+- **Fix:** "Retry" is now offered **only on failed/canceled pipelines** (new context value
+  `pipelineItemDone` for finished-clean ones, which get "Run new pipeline" instead). After a retry the
+  pipeline's jobs cache is invalidated and the tree re-renders.
+- **Added "Run new pipeline"** (`runPipeline` → `POST /pipeline?ref=…`) — a fresh run on the ref,
+  which is likely what "retry" was expected to do. Inline on finished pipelines + in every pipeline's
+  right-click menu. Path-assertion test added (69 group-(a) green).
+
+## 2026-07-26 — GCM-26/27/28: context-menu interactions
+
+- **GCM-26 — swapped job click/right-click.** Left-click a job now streams its live log (the common
+  action); the right-click menu opens it in GitLab. The job node's `command` points at
+  `pipeline.job.log` (carrying the node as its arg); `pipeline.click` moved to the context menu.
+- **GCM-27 — retry/cancel/play from the right-click menu**, on both levels. Pipelines: retry/cancel
+  (also inline). Jobs: retry (finished) / cancel (running) / play (manual), gated by status-driven
+  context values (`jobItemRunning`/`jobItemManual`/`jobItemRetryable`) so only the applicable action
+  shows. New REST wrappers `retryJob`/`cancelJob`/`playJob` (`src/gitlab-api.ts`, injectable
+  transport for tests); after an action the pipeline's cached jobs are invalidated
+  (`invalidatePipelineJobs`) and the tree re-renders so the change shows at once.
+- **GCM-28 — open a pipeline's commit.** "Open commit in GitLab" derives the commit page from the
+  pipeline `web_url` + `sha` (`commitUrl`, pure/tested). Pipeline node now carries `sha`.
+- **Tests:** 68 group-(a) green — `commitUrl` (derive + empty-input), and `retryJob`/`cancelJob`/
+  `playJob` path assertions via a local http server. The menu/click behavior is group-(b)
+  (Extension Host). package.json gained the four commands + context-menu entries.
+
 ## 2026-07-26 — Stable 1.0.0 released (new scheme, GCM-24 + GCM-25)
 
 - **Released stable `1.0.0`** (user "go"). Promoted `dev` → `rc` → `release` under the new GCM-25

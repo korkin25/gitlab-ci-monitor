@@ -48,21 +48,52 @@
 				"icon": "$(refresh)"
 			},
 			{
-				"command": "pipeline.retry",
-				"title": "Retry pipeline",
+				"command": "pipeline.run",
+				"title": "Run new pipeline",
 				"category": "GitLab CI",
-				"icon": "$(debug-restart)"
+				"icon": "$(run-all)"
 			},
 			{
 				"command": "pipeline.cancel",
-				"title": "Cancel pipeline",
+				"title": "Stop pipeline",
 				"category": "GitLab CI",
 				"icon": "$(stop-circle)"
 			},
 			{
 				"command": "pipeline.job.log",
-				"title": "Stream job log (live)",
-				"category": "GitLab CI"
+				"title": "Open job log (live)",
+				"category": "GitLab CI",
+				"icon": "$(output)"
+			},
+			{
+				"command": "pipeline.job.retry",
+				"title": "Retry job",
+				"category": "GitLab CI",
+				"icon": "$(debug-restart)"
+			},
+			{
+				"command": "pipeline.job.cancel",
+				"title": "Stop job",
+				"category": "GitLab CI",
+				"icon": "$(stop-circle)"
+			},
+			{
+				"command": "pipeline.job.play",
+				"title": "Play job",
+				"category": "GitLab CI",
+				"icon": "$(play)"
+			},
+			{
+				"command": "pipeline.open",
+				"title": "Open pipeline in GitLab",
+				"category": "GitLab CI",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "pipeline.openCommit",
+				"title": "Open commit in GitLab",
+				"category": "GitLab CI",
+				"icon": "$(git-commit)"
 			},
 			{
 				"command": "pipeline.click",
@@ -105,19 +136,69 @@
 			],
 			"view/item/context": [
 				{
-					"command": "pipeline.retry",
-					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemRetryable",
-					"group": "inline"
-				},
-				{
 					"command": "pipeline.cancel",
 					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemRunning",
 					"group": "inline"
 				},
 				{
+					"command": "pipeline.run",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemDone",
+					"group": "inline"
+				},
+				{
+					"command": "pipeline.cancel",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemRunning",
+					"group": "1_actions"
+				},
+				{
+					"command": "pipeline.run",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem =~ /^pipelineItem/",
+					"group": "1_actions"
+				},
+				{
+					"command": "pipeline.open",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem =~ /^pipelineItem/",
+					"group": "2_open"
+				},
+				{
+					"command": "pipeline.openCommit",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem =~ /^pipelineItem/",
+					"group": "2_open"
+				},
+				{
 					"command": "pipeline.job.log",
-					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == jobItem",
-					"group": "navigation"
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem =~ /^jobItem/",
+					"group": "inline"
+				},
+				{
+					"command": "pipeline.job.cancel",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == jobItemRunning",
+					"group": "inline"
+				},
+				{
+					"command": "pipeline.job.cancel",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == jobItemRunning",
+					"group": "1_actions"
+				},
+				{
+					"command": "pipeline.job.retry",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == jobItemRetryable",
+					"group": "1_actions"
+				},
+				{
+					"command": "pipeline.job.play",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == jobItemManual",
+					"group": "1_actions"
+				},
+				{
+					"command": "pipeline.job.log",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem =~ /^jobItem/",
+					"group": "2_open"
+				},
+				{
+					"command": "pipeline.click",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem =~ /^jobItem/",
+					"group": "2_open"
 				}
 			]
 		}

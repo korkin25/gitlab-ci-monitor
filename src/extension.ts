@@ -20,14 +20,21 @@ import {
 	revealRepoByPath,
 	getConfigForPipeline,
 	getConfigForProject,
+	invalidatePipelineJobs,
+	hasRunningPipelines,
 	setRepoExpanded
 } from './tree-view';
+import { nextPollDelay } from './poll';
 import {
 	getAllConfigs,
 	getJobTrace,
 	getJob,
-	retryPipeline,
 	cancelPipeline,
+	runPipeline,
+	retryJob,
+	cancelJob,
+	playJob,
+	commitUrl,
 	getWorkspaceDomains,
 	setTokenStore,
 	RepoConfig
@@ -82,15 +89,17 @@ export async function activate(context: ExtensionContext) {
 
 	context.subscriptions.push(initStatusBar());
 
-	// open a pipeline / job in the browser
-	context.subscriptions.push(
-		commands.registerCommand('pipeline.click', (arg: any) => {
-			const url = typeof arg === 'string' ? arg : arg?.webUrl;
-			if (!url) {
-				return;
-			}
+	// open a pipeline / job in the browser (pipeline.open is the same, with a
+	// pipeline-specific title for the right-click menu)
+	const openInBrowser = (arg: any) => {
+		const url = typeof arg === 'string' ? arg : arg?.webUrl;
+		if (url) {
 			commands.executeCommand('vscode.open', Uri.parse(url));
-		})
+		}
+	};
+	context.subscriptions.push(
+		commands.registerCommand('pipeline.click', openInBrowser),
+		commands.registerCommand('pipeline.open', openInBrowser)
 	);
 
 	context.subscriptions.push(
@@ -99,19 +108,22 @@ export async function activate(context: ExtensionContext) {
 		})
 	);
 
+	// run a brand-new pipeline on a pipeline's ref (a fresh run)
 	context.subscriptions.push(
-		commands.registerCommand('pipeline.retry', async (item: any) => {
-			const config = getConfigForPipeline(item?.pipelineId);
-			if (!config || !item?.pipelineId) {
+		commands.registerCommand('pipeline.run', async (item: any) => {
+			const config = getConfigForPipeline(item?.pipelineId) || getConfigForProject(item?.project);
+			const ref = item?.ref || (config && config.currentBranch);
+			if (!config || !ref) {
 				return;
 			}
 			try {
-				await retryPipeline(config, item.pipelineId);
-				window.setStatusBarMessage(`Pipeline #${item.pipelineId} retried`, 3000);
+				const created = await runPipeline(config, ref);
+				window.setStatusBarMessage(`New pipeline #${created?.id ?? ''} started on ${ref}`, 3000);
 			} catch (e) {
-				window.showErrorMessage(`Retry failed: ${e}`);
+				window.showErrorMessage(`Run pipeline failed: ${e}`);
 			}
-			updateAllPipelinesStatus(provider);
+			await updateAllPipelinesStatus(provider);
+			provider.refresh();
 		})
 	);
 
@@ -129,6 +141,43 @@ export async function activate(context: ExtensionContext) {
 			}
 			updateAllPipelinesStatus(provider);
 		})
+	);
+
+	// open the commit that a pipeline ran against
+	context.subscriptions.push(
+		commands.registerCommand('pipeline.openCommit', (item: any) => {
+			const url = commitUrl(item?.webUrl || '', item?.sha || '');
+			if (!url) {
+				window.showWarningMessage('No commit URL for this pipeline.');
+				return;
+			}
+			commands.executeCommand('vscode.open', Uri.parse(url));
+		})
+	);
+
+	// single-job actions (retry / cancel / play), shared body — invalidate the pipeline's
+	// cached jobs and re-render so the new state shows without waiting for the next poll.
+	const jobAction = async (item: any, fn: (c: RepoConfig, id: number) => Promise<any>, verb: string) => {
+		const config = getConfigForProject(item?.project);
+		if (!config || !item?.jobId) {
+			return;
+		}
+		try {
+			await fn(config, Number(item.jobId));
+			window.setStatusBarMessage(`Job ${item.jobName || item.jobId} ${verb}`, 3000);
+		} catch (e) {
+			window.showErrorMessage(`Job ${verb} failed: ${e}`);
+		}
+		if (item.pipelineId != null) {
+			invalidatePipelineJobs(item.pipelineId);
+		}
+		await updateAllPipelinesStatus(provider);
+		provider.refresh();
+	};
+	context.subscriptions.push(
+		commands.registerCommand('pipeline.job.retry', (item: any) => jobAction(item, retryJob, 'retried')),
+		commands.registerCommand('pipeline.job.cancel', (item: any) => jobAction(item, cancelJob, 'canceled')),
+		commands.registerCommand('pipeline.job.play', (item: any) => jobAction(item, playJob, 'started'))
 	);
 
 	// job logs stream live into a terminal — the trace tails in as the job runs, ANSI
@@ -232,22 +281,44 @@ export async function activate(context: ExtensionContext) {
 	await reloadSecrets();
 	await migrateSettingsTokens();
 
+	// Adaptive polling: GitLab has no pipeline-status WebSocket, so we approximate "live"
+	// by self-scheduling — poll fast (≤2s) while anything is running, and back off to the
+	// configured interval once everything has finished. A single timer, re-armed after
+	// each poll based on whether pipelines are still running.
 	const configs = getAllConfigs();
-	const interval = (configs[0] && configs[0].interval) || 5000;
-	const tid = setInterval(() => {
+	const idleMs = (configs[0] && configs[0].interval) || 5000;
+	const fastMs = 2000;
+	let pollTimer: ReturnType<typeof setTimeout> | undefined;
+	let stopped = false;
+	const scheduleNextPoll = () => {
+		if (stopped) {
+			return;
+		}
+		pollTimer = setTimeout(pollOnce, nextPollDelay(hasRunningPipelines(), idleMs, fastMs));
+	};
+	const pollOnce = async () => {
 		try {
-			updateAllPipelinesStatus(provider);
+			await updateAllPipelinesStatus(provider);
 		} catch (e) {
 			console.error(e);
 		}
-	}, interval);
-	context.subscriptions.push({ dispose: () => clearInterval(tid) });
+		scheduleNextPoll();
+	};
+	context.subscriptions.push({
+		dispose: () => {
+			stopped = true;
+			if (pollTimer) {
+				clearTimeout(pollTimer);
+			}
+		}
+	});
 
 	updateAllPipelinesStatus(provider)
 		.then(() => expandActiveEditorRepo(explorerView))
 		.catch(() => {
 			/* ignore */
-		});
+		})
+		.finally(() => scheduleNextPoll());
 }
 
 export function deactivate() {

@@ -2,7 +2,92 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as http from 'node:http';
 import { AddressInfo } from 'node:net';
-import { RepoConfig, buildRequestOptions, apiRequest } from '../src/gitlab-api';
+import {
+	RepoConfig,
+	buildRequestOptions,
+	apiRequest,
+	commitUrl,
+	retryJob,
+	cancelJob,
+	playJob,
+	runPipeline
+} from '../src/gitlab-api';
+
+test('runPipeline POSTs to /pipeline with the ref as a query param', async () => {
+	let seen: { method?: string; url?: string } = {};
+	const server = http.createServer((req, res) => {
+		seen = { method: req.method, url: req.url };
+		res.writeHead(201, { 'content-type': 'application/json' });
+		res.end(JSON.stringify({ id: 7, status: 'created' }));
+	});
+	await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+	const { port } = server.address() as AddressInfo;
+	try {
+		const conf: RepoConfig = {
+			domain: 'gitlab.com',
+			project: 'group/sub/repo',
+			currentBranch: 'main',
+			apiUrl: `http://127.0.0.1:${port}/api/v4`,
+			token: 'secret-token',
+			interval: 5000,
+			notifyOnFailed: true
+		};
+		await runPipeline(conf, 'feature/x y', http.request);
+		assert.equal(seen.method, 'POST');
+		assert.equal(seen.url, '/api/v4/projects/group%2Fsub%2Frepo/pipeline?ref=feature%2Fx%20y');
+	} finally {
+		server.close();
+	}
+});
+
+test('commitUrl derives the commit page from a pipeline web_url + sha', () => {
+	assert.equal(
+		commitUrl('https://gitlab.com/group/proj/-/pipelines/123', 'abc123'),
+		'https://gitlab.com/group/proj/-/commit/abc123'
+	);
+	assert.equal(
+		commitUrl('https://gitlab.example.com/a/b/c/-/pipelines/9', 'deadbeef'),
+		'https://gitlab.example.com/a/b/c/-/commit/deadbeef'
+	);
+});
+
+test('commitUrl returns empty string when inputs are missing', () => {
+	assert.equal(commitUrl('', 'abc'), '');
+	assert.equal(commitUrl('https://gitlab.com/g/p/-/pipelines/1', ''), '');
+});
+
+for (const [fn, name, verb] of [
+	[retryJob, 'retryJob', 'retry'],
+	[cancelJob, 'cancelJob', 'cancel'],
+	[playJob, 'playJob', 'play']
+] as [any, string, string][]) {
+	test(`${name} POSTs to /jobs/:id/${verb}`, async () => {
+		let seen: { method?: string; url?: string } = {};
+		const server = http.createServer((req, res) => {
+			seen = { method: req.method, url: req.url };
+			res.writeHead(200, { 'content-type': 'application/json' });
+			res.end(JSON.stringify({ id: 42, status: 'pending' }));
+		});
+		await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+		const { port } = server.address() as AddressInfo;
+		try {
+			const conf: RepoConfig = {
+				domain: 'gitlab.com',
+				project: 'group/sub/repo',
+				currentBranch: 'main',
+				apiUrl: `http://127.0.0.1:${port}/api/v4`,
+				token: 'secret-token',
+				interval: 5000,
+				notifyOnFailed: true
+			};
+			await fn(conf, 42, http.request);
+			assert.equal(seen.method, 'POST');
+			assert.equal(seen.url, `/api/v4/projects/group%2Fsub%2Frepo/jobs/42/${verb}`);
+		} finally {
+			server.close();
+		}
+	});
+}
 
 function makeConfig(over: Partial<RepoConfig> = {}): RepoConfig {
 	return {

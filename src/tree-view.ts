@@ -14,9 +14,17 @@ import {
 } from 'vscode';
 import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs, getJobNeeds } from './pipelines';
 import { groupJobsByStage, resolveNeeds, aggregateStageStatus, JobDep } from './job-order';
+import { formatDuration, jobDurationSeconds, pipelineDurationSeconds } from './duration';
+import { shouldFlash } from './flash';
 import { repoProjectForPath, expansionChanges } from './expansion';
 import { latestFailedByRef, pendingFailureNotifications, formatFailureMessage } from './notify';
 import { pipelinesSignature } from './signature';
+
+// ` · 1m 23s` suffix for a node label, or '' when the duration is unknown.
+const durationSuffix = (seconds: number | null): string => {
+	const d = seconds == null ? '' : formatDuration(seconds);
+	return d ? ` · ${d}` : '';
+};
 
 // ---------------------------------------------------------------------------
 // module state
@@ -37,12 +45,55 @@ const notifiedFailureByRef: Map<string, number> = new Map();
 const jobsCache: Map<number, { stages: any[]; ts: number }> = new Map();
 const JOBS_TTL_RUNNING = 4000;
 const JOBS_TTL_DONE = 10 * 60 * 1000;
+// When a pipeline's jobs fail to load, we keep re-fetching them in the BACKGROUND —
+// regardless of whether the node is still expanded — so the data the user tried to
+// open finishes loading and is ready in the cache when they come back. The queue holds
+// every pipeline whose fetch failed (and hasn't succeeded yet); a single timer drains
+// it, re-rendering once when any recover.
+const JOBS_RETRY_MS = 3000;
+const jobRetryQueue: Map<number, { config: RepoConfig; iid: any }> = new Map();
+let jobRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+function ensureJobRetryLoop(provider: TreeViewProvider): void {
+	if (jobRetryTimer || jobRetryQueue.size === 0) {
+		return;
+	}
+	jobRetryTimer = setTimeout(() => runJobRetryRound(provider), JOBS_RETRY_MS);
+}
+
+async function runJobRetryRound(provider: TreeViewProvider): Promise<void> {
+	jobRetryTimer = null;
+	let recovered = false;
+	for (const [id, info] of Array.from(jobRetryQueue)) {
+		if (!pipelineConfigById.has(id)) {
+			jobRetryQueue.delete(id); // pipeline dropped out of the list — stop chasing it
+			continue;
+		}
+		try {
+			const stages = await buildStageTree(info.config, id, info.iid);
+			jobsCache.set(id, { stages, ts: Date.now() });
+			jobRetryQueue.delete(id);
+			recovered = true;
+		} catch (e) {
+			/* still failing — keep it queued for the next round */
+		}
+	}
+	if (recovered) {
+		provider.refresh(); // now-cached jobs appear on the next render (if expanded)
+	}
+	ensureJobRetryLoop(provider); // reschedule while anything remains
+}
 // How long the transient failure toast stays before it dismisses itself (no click).
 const FAILURE_TOAST_MS = 2500;
 // signature of the last rendered pipeline data — the tree is only refreshed when
 // this changes, so nothing re-renders (and expanded jobs stay cached) while the
 // pipelines are unchanged.
 let lastSignature: string | null = null;
+// bumped each poll while any pipeline is running, so live durations tick in the label
+let runningTick = 0;
+// true when the last poll saw a running/pending pipeline — drives the adaptive interval
+let anyRunningNow = false;
+export const hasRunningPipelines = (): boolean => anyRunningNow;
 let currentConfig: RepoConfig | null = null;
 let statusBar: StatusBarItem | undefined;
 // which repo groups are expanded — persisted across refreshes so a group the user
@@ -61,6 +112,12 @@ export const getConfigForProject = (project: string): RepoConfig | null =>
 	configByProject.get(project) || currentConfig;
 export const getConfigForPipeline = (pipelineId: any): RepoConfig | null =>
 	pipelineConfigById.get(Number(pipelineId)) || currentConfig;
+
+// Drop a pipeline's cached job subtree so the next render re-fetches it — called after
+// a job action (retry/cancel/play) so the change shows without waiting for a poll.
+export const invalidatePipelineJobs = (pipelineId: any): void => {
+	jobsCache.delete(Number(pipelineId));
+};
 
 const STATUS_EMOJI: { [k: string]: string } = {
 	success: '✅',
@@ -85,6 +142,69 @@ const STATUS_CODICON: { [k: string]: string } = {
 	created: '$(clock)',
 	scheduled: '$(calendar)'
 };
+// Brighter icons shown for a fraction of a second the instant a node finishes/breaks,
+// then it reverts to the normal STATUS_EMOJI. Purely a "something just happened" cue.
+const FLASH_EMOJI: { [k: string]: string } = {
+	success: '✨',
+	failed: '💥',
+	canceled: '⚪',
+	skipped: '🔵'
+};
+const FLASH_MS = 330;
+// key (`pipe:<id>` / `job:<id>`) → timestamp the flash ends; and the live node object so
+// we can revert its label in place when the flash expires (no re-fetch needed).
+const flashUntil: Map<string, number> = new Map();
+const flashNodes: Map<string, any> = new Map();
+const lastJobStatus: Map<number, string> = new Map();
+let flashTimer: ReturnType<typeof setTimeout> | null = null;
+let providerRef: TreeViewProvider | null = null;
+
+// Build a node label whose status emoji flashes bright while `flashUntil[key]` is live,
+// then reverts. The node keeps its normal label so the flash-clear timer can restore it.
+function flashableLabel(key: string, status: string, rest: string, node: any): string {
+	const normal = `${STATUS_EMOJI[status] || '⌛'}  ${rest}`;
+	node._normalLabel = normal;
+	const until = flashUntil.get(key);
+	if (until && Date.now() < until) {
+		flashNodes.set(key, node);
+		return `${FLASH_EMOJI[status] || STATUS_EMOJI[status] || '⌛'}  ${rest}`;
+	}
+	return normal;
+}
+
+// Start a flash for a node key (called when a status change is detected during a build).
+function startFlash(key: string): void {
+	flashUntil.set(key, Date.now() + FLASH_MS);
+	ensureFlashClear();
+}
+
+// One timer reverts every expired flash: restore each node's normal label in place and
+// re-render, then reschedule while any flash remains.
+function ensureFlashClear(): void {
+	if (flashTimer || flashUntil.size === 0) {
+		return;
+	}
+	flashTimer = setTimeout(() => {
+		flashTimer = null;
+		const now = Date.now();
+		let changed = false;
+		for (const [key, until] of Array.from(flashUntil)) {
+			if (now >= until) {
+				const node = flashNodes.get(key);
+				if (node) {
+					node.label = node._normalLabel;
+				}
+				flashNodes.delete(key);
+				flashUntil.delete(key);
+				changed = true;
+			}
+		}
+		if (changed && providerRef) {
+			providerRef.refresh();
+		}
+		ensureFlashClear();
+	}, FLASH_MS + 30);
+}
 
 // ---------------------------------------------------------------------------
 // tree item builders (plain objects are valid TreeItems; extra fields are ours)
@@ -106,23 +226,42 @@ function createRepoNode(config: RepoConfig, count: number): any {
 }
 
 function createPipelineNode(pipeline: any, config: RepoConfig): any {
-	const emoji = STATUS_EMOJI[pipeline.status] || '⌛';
-	const running = pipeline.status === 'running' || pipeline.status === 'pending';
-	return {
+	const status = pipeline.status;
+	// Running/pending → can be stopped; anything finished → can be re-run fresh.
+	const running = status === 'running' || status === 'pending' || status === 'created';
+	// The status emoji already conveys success/failed/running — no need to spell it out.
+	const rest = `${pipeline.id} · ${pipeline.ref}${durationSuffix(pipelineDurationSeconds(pipeline, Date.now()))}`;
+	const node: any = {
 		id: `pipe:${pipeline.id}`,
 		isPipelineNode: true,
-		label: `${emoji}  ${pipeline.id} · ${pipeline.status} · ${pipeline.ref}`,
+		label: '',
 		collapsibleState: TreeItemCollapsibleState.Collapsed,
 		tooltip: pipeline.web_url,
-		contextValue: running ? 'pipelineItemRunning' : 'pipelineItemRetryable',
+		contextValue: running ? 'pipelineItemRunning' : 'pipelineItemDone',
 		pipelineId: pipeline.id,
 		iid: pipeline.iid,
 		pipelineStatus: pipeline.status,
 		ref: pipeline.ref,
+		sha: pipeline.sha,
 		project: config.project,
 		webUrl: pipeline.web_url,
 		command: { title: 'Open in GitLab', command: 'pipeline.click', arguments: [pipeline.web_url] }
 	};
+	node.label = flashableLabel(`pipe:${pipeline.id}`, status, rest, node);
+	return node;
+}
+
+// The context value drives which right-click actions a job offers (see package.json
+// `view/item/context`): a running/pending job can be canceled, a manual one played,
+// a finished one retried. All start with `jobItem` so "open in GitLab" applies to any.
+function jobContextValue(status: string): string {
+	if (status === 'running' || status === 'pending' || status === 'created') {
+		return 'jobItemRunning';
+	}
+	if (status === 'manual') {
+		return 'jobItemManual';
+	}
+	return 'jobItemRetryable';
 }
 
 // A stage groups the jobs that run in it. Its label carries an aggregate status so
@@ -152,42 +291,57 @@ function createDepNode(parentJobId: number, dep: JobDep): any {
 }
 
 // A job under its stage. If it has `needs`, it is collapsible and reveals them.
+// Clicking a job streams its log live; right-click opens it in GitLab + offers actions.
 function createJobNode(job: any, config: RepoConfig, pipelineId: number, deps: JobDep[]): any {
-	const emoji = STATUS_EMOJI[job.status] || '⌛';
 	const depNodes = deps.map((d) => createDepNode(job.id, d));
-	return {
+	const rest = `${job.name || job.id}${durationSuffix(jobDurationSeconds(job, Date.now()))}`;
+	const node: any = {
 		id: `job:${pipelineId}:${job.id}`,
 		isJobNode: true,
-		label: `${emoji}  ${job.name || job.id}`,
+		label: '',
 		collapsibleState: depNodes.length ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None,
 		tooltip: job.web_url,
-		contextValue: 'jobItem',
+		contextValue: jobContextValue(job.status),
 		jobId: job.id,
 		jobName: job.name,
 		jobStatus: job.status,
+		pipelineId,
 		project: config.project,
 		webUrl: job.web_url,
-		children: depNodes,
-		command: { title: 'Open job in GitLab', command: 'pipeline.click', arguments: [job.web_url] }
+		children: depNodes
 	};
+	node.label = flashableLabel(`job:${job.id}`, job.status, rest, node);
+	// Left-click → stream the live log (the node carries the fields the command needs).
+	node.command = { title: 'Stream job log', command: 'pipeline.job.log', arguments: [node] };
+	return node;
 }
 
 // Build a pipeline's stage → job → dependency subtree. REST supplies the jobs (and
 // their stages); GraphQL supplies the `needs` DAG — best-effort, so a token without
 // GraphQL scope (or an old GitLab) simply yields jobs with no dependency edges.
 async function buildStageTree(config: RepoConfig, pipelineId: number, iid: any): Promise<any[]> {
-	let jobs: any[];
-	try {
-		jobs = await getPipelineJobs(config, pipelineId);
-	} catch (e) {
-		jobs = [];
-	}
+	// Let a jobs-fetch failure PROPAGATE — getChildren must be able to tell "no jobs"
+	// from "fetch failed" so it does not cache an empty subtree on a transient timeout.
+	const jobs = await getPipelineJobs(config, pipelineId);
 	let needs = new Map<string, string[]>();
 	if (iid != null) {
 		try {
 			needs = await getJobNeeds(config, iid);
 		} catch (e) {
 			needs = new Map();
+		}
+	}
+	// Flash a job's icon the moment it finishes/breaks (detected against the last status
+	// we rendered for it). Done before building the nodes, so createJobNode picks it up.
+	for (const j of jobs) {
+		const jid = j?.id;
+		if (jid == null) {
+			continue;
+		}
+		const prev = lastJobStatus.get(jid);
+		lastJobStatus.set(jid, j?.status);
+		if (shouldFlash(prev, j?.status)) {
+			startFlash(`job:${jid}`);
 		}
 	}
 	const depsByName = resolveNeeds(jobs, needs);
@@ -253,9 +407,19 @@ export class TreeViewProvider implements TreeDataProvider<TreeItem> {
 			if (cached && Date.now() - cached.ts < ttl) {
 				return cached.stages;
 			}
-			const stages = await buildStageTree(config, id, element.iid);
-			jobsCache.set(id, { stages, ts: Date.now() });
-			return stages;
+			try {
+				const stages = await buildStageTree(config, id, element.iid);
+				jobsCache.set(id, { stages, ts: Date.now() });
+				return stages;
+			} catch (e) {
+				// A failed/timed-out fetch must NOT be cached as "no jobs" — otherwise the
+				// pipeline stays expanded-but-empty. Leave the cache alone and queue a
+				// BACKGROUND re-fetch that keeps trying until it succeeds, so the data is
+				// ready in the cache even if the user collapses and comes back later.
+				jobRetryQueue.set(id, { config, iid: element.iid });
+				ensureJobRetryLoop(this);
+				return cached ? cached.stages : [];
+			}
 		}
 		return [];
 	}
@@ -326,6 +490,9 @@ function trackStatus(pipeline: any): void {
 	if (prev && prev !== pipeline.status) {
 		jobsCache.delete(id); // status changed → job list is stale
 	}
+	if (shouldFlash(prev, pipeline.status)) {
+		startFlash(`pipe:${id}`); // it just finished/broke → flash its icon briefly
+	}
 }
 
 // A self-dismissing failure toast: a notification that needs no click and slides
@@ -362,6 +529,7 @@ function notifyFailures(config: RepoConfig, pipelines: any[]): void {
 // ---------------------------------------------------------------------------
 
 export async function updateAllPipelinesStatus(provider: TreeViewProvider): Promise<void> {
+	providerRef = provider; // used by the flash-clear timer to re-render
 	const configs = getAllConfigs();
 	currentConfig = configs[0] || currentConfig;
 	configByProject.clear();
@@ -427,9 +595,28 @@ export async function updateAllPipelinesStatus(provider: TreeViewProvider): Prom
 		}
 	}
 	updateStatusBar();
-	// only re-render when the pipeline data actually changed — otherwise the tree
-	// (and any expanded, cached jobs) stays put instead of flickering every poll.
-	const signature = sigParts.join('|');
+	// Only re-render when the pipeline data actually changed — otherwise the tree stays
+	// put instead of flickering every poll. EXCEPTION: while something is running, add a
+	// per-poll tick so the live durations advance (and running jobs refresh); when the
+	// workspace is idle the signature is stable again, so nothing re-renders needlessly.
+	let anyRunning = false;
+	for (const items of newByRepo.values()) {
+		for (const it of items) {
+			const s = it.pipelineStatus;
+			if (s === 'running' || s === 'pending' || s === 'created') {
+				anyRunning = true;
+				break;
+			}
+		}
+		if (anyRunning) {
+			break;
+		}
+	}
+	anyRunningNow = anyRunning; // drives the adaptive poll interval (poll faster while running)
+	if (anyRunning) {
+		runningTick++;
+	}
+	const signature = sigParts.join('|') + (anyRunning ? `~${runningTick}` : '');
 	if (lastSignature !== signature) {
 		lastSignature = signature;
 		provider.refresh();

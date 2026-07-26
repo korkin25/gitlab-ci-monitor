@@ -23,8 +23,12 @@ export {
 	getJobTrace,
 	getJob,
 	getJobNeeds,
-	retryPipeline,
-	cancelPipeline
+	cancelPipeline,
+	runPipeline,
+	retryJob,
+	cancelJob,
+	playJob,
+	commitUrl
 } from './gitlab-api';
 export type { RepoConfig } from './gitlab-api';
 
