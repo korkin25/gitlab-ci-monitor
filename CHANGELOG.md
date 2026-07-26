@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GCM-20 — jobs render as a stage tree with the job dependency (`needs`) graph.** A pipeline no
+  longer expands into a flat job list. Jobs now nest under their **stage** (each stage node shows
+  an aggregate status summarising its jobs), and any job with `needs` is collapsible, revealing
+  the jobs it depends on as `↳`-prefixed leaves — the CI DAG, in the tree. Stage grouping comes
+  from the REST jobs endpoint (`groupJobsByStage` / `aggregateStageStatus` in `src/job-order.ts`);
+  the `needs` edges come from GitLab **GraphQL** (`getJobNeeds` / `parseJobNeeds` in
+  `src/gitlab-api.ts`), best-effort — a token without GraphQL access (or an old GitLab) simply
+  yields jobs with no dependency edges. The per-pipeline cache now stores the whole stage subtree.
+
 - **GCM-14 — adopt the `ai-project-template` engineering standard (feature #10).** Universal
   agent-rule pickup: `CLAUDE.md` is the single source and `AGENTS.md`, `GEMINI.md`,
   `.cursorrules`, `.clinerules`, `.windsurfrules`, `.github/copilot-instructions.md` are

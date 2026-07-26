@@ -96,6 +96,109 @@ export function getJobTrace(conf: RepoConfig, jobId: number): Promise<string> {
 	return apiRequest(conf, `/jobs/${jobId}/trace`, 'GET', true) as Promise<string>;
 }
 
+/** Fetch a single job (used to read its live status while streaming its log). */
+export function getJob(conf: RepoConfig, jobId: number): Promise<any> {
+	return apiRequest(conf, `/jobs/${jobId}`);
+}
+
+// ---------------------------------------------------------------------------
+// GraphQL — used only for the job `needs` DAG, which the REST jobs endpoint does
+// not expose. Best-effort: any failure degrades to "no dependency edges".
+// ---------------------------------------------------------------------------
+
+// The REST base is `https://<host>/api/v4`; GraphQL lives at `https://<host>/api/graphql`.
+export function buildGraphqlUrl(conf: RepoConfig): string {
+	return conf.apiUrl.replace(/\/v4\/?$/, '/graphql');
+}
+
+const JOB_NEEDS_QUERY =
+	'query($fullPath: ID!, $iid: ID!) { project(fullPath: $fullPath) { pipeline(iid: $iid) ' +
+	'{ jobs { nodes { name needs { nodes { name } } } } } } }';
+
+/** POST a GraphQL query and resolve the parsed JSON body (including any `errors`). */
+export function graphqlRequest(
+	conf: RepoConfig,
+	query: string,
+	variables: Record<string, unknown>,
+	transport: Transport = https.request
+): Promise<any> {
+	return new Promise((resolve, reject) => {
+		if (!conf.token) {
+			return reject(new Error(`No token for '${conf.domain}'`));
+		}
+		let url: URL;
+		try {
+			url = new URL(buildGraphqlUrl(conf));
+		} catch (e) {
+			return reject(e);
+		}
+		const body = JSON.stringify({ query, variables });
+		const options: RequestOptions = {
+			hostname: url.hostname,
+			port: url.port ? Number(url.port) : url.protocol === 'http:' ? 80 : 443,
+			path: url.pathname + url.search,
+			method: 'POST',
+			headers: {
+				'PRIVATE-TOKEN': conf.token,
+				'Content-Type': 'application/json',
+				'Content-Length': Buffer.byteLength(body)
+			},
+			timeout: 8000
+		};
+		const req = transport(options, (res) => {
+			let data = '';
+			res.on('data', (chunk) => {
+				data += chunk;
+			});
+			res.on('end', () => {
+				const code = res.statusCode || 0;
+				if (code < 200 || code >= 300) {
+					return reject(new Error(`GitLab GraphQL ${code}`));
+				}
+				try {
+					resolve(data ? JSON.parse(data) : {});
+				} catch (e) {
+					reject(e);
+				}
+			});
+		});
+		req.on('error', reject);
+		req.on('timeout', () => {
+			req.destroy(new Error('request timeout'));
+		});
+		req.write(body);
+		req.end();
+	});
+}
+
+/** Extract a `job-name → [needed job names]` map from a JOB_NEEDS_QUERY payload. */
+export function parseJobNeeds(payload: any): Map<string, string[]> {
+	const nodes = payload?.data?.project?.pipeline?.jobs?.nodes;
+	const out = new Map<string, string[]>();
+	if (!Array.isArray(nodes)) {
+		return out;
+	}
+	for (const j of nodes) {
+		const name = (j?.name || '').trim();
+		const needs = (j?.needs?.nodes || []).map((n: any) => (n?.name || '').trim()).filter(Boolean);
+		if (name && needs.length) {
+			out.set(name, needs);
+		}
+	}
+	return out;
+}
+
+/** The job `needs` DAG for a pipeline (by its iid). Any failure → an empty map. */
+export function getJobNeeds(
+	conf: RepoConfig,
+	pipelineIid: number | string,
+	transport: Transport = https.request
+): Promise<Map<string, string[]>> {
+	return graphqlRequest(conf, JOB_NEEDS_QUERY, { fullPath: conf.project, iid: String(pipelineIid) }, transport)
+		.then(parseJobNeeds)
+		.catch(() => new Map<string, string[]>());
+}
+
 export function retryPipeline(conf: RepoConfig, pipelineId: number): Promise<any> {
 	return apiRequest(conf, `/pipelines/${pipelineId}/retry`, 'POST');
 }

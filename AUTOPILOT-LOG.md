@@ -2,6 +2,21 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-20: jobs as a stage tree + `needs` dependency tree
+
+- **Pipelines now expand into `stage → job → dependency` nodes** instead of a flat job list. Pure,
+  unit-tested tree logic in `src/job-order.ts`: `groupJobsByStage` (dedupe-latest, drop canceled,
+  first-seen stage order), `aggregateStageStatus` (stage-node status summary), `resolveNeeds`
+  (job-name → `{name,status}` from the deduped jobs).
+- **`needs` DAG via GitLab GraphQL.** REST does not expose job `needs`, so added a GraphQL layer to
+  `src/gitlab-api.ts` (`buildGraphqlUrl`, `graphqlRequest` POST, `parseJobNeeds`, `getJobNeeds`) —
+  zero new runtime deps (Node `https`). Best-effort: any GraphQL failure degrades to "no dependency
+  edges", so a token without GraphQL scope still shows the full stage tree. _Reverse:_ revert the
+  branch; the REST path is untouched.
+- **`tree-view.ts`** builds the subtree once per pipeline (`buildStageTree`) and caches it (same
+  TTL model as before); `getChildren` now walks stage/job/dependency levels. Node ids namespaced by
+  pipeline id to stay unique across the tree.
+
 ## 2026-07-26 — GCM-19: drop the separate feature backlog file
 
 - **Eliminated the standalone root feature-backlog file.** User-facing product features now live

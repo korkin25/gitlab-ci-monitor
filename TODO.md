@@ -2,53 +2,28 @@
 
 ## Current state / next action
 
-- **GCM-19 done** (2026-07-26): **dropped the standalone feature-backlog file.** User-facing
-  features now live in `README.md`'s `## Features` section (the canonical, Marketplace-rendered
-  list); backlog and ideas live here in `TODO.md` (Planned / ideas). Every reference to the old
-  root backlog file was purged from `CLAUDE.md`, the `.claude/settings.json` hook,
-  `.cursor/rules/project.mdc`, the PR/issue templates, `CONTRIBUTING.md`, and the `doc-sync`
-  guard regex.
-- **GCM-14 in progress** (2026-07-26): **adopt the `ai-project-template` engineering standard**
-  (feature #10), adapted for a TS VS Code extension. Branch model migrated `main` →
-  `dev`/`rc`/`release` (`dev` default; `main` legacy). Done on `feature/GCM-14-full-standard`:
-  CI reuses `open-ci-actions@v1` `sast.yml` + bespoke Node gates (eslint/prettier/tsc/`node
-  --test`/`vsce package`); universal agent-rule symlinks + `.claude/settings.json` hook +
-  `.cursor/rules/project.mdc`; `CLAUDE.md` rewritten to the full standard (context-map router /
-  Testing policy / Versioning=package.json / Safe-autonomy / Agent-security / Design-before-code
-  / Per-task lifecycle); the feature backlog, `doc-sync.yml`, Dependabot, pre-commit (gitleaks-only),
-  CODEOWNERS, PR/issue templates, SECURITY/CONTRIBUTING/CoC. `.gitlab-ci.yml` skipped (no Node
-  GitLab template). `release.yml` unchanged. **Next:** push branch → PR to `dev` → analyze CI
-  logs (even if green) → merge with `--no-ff` once green.
-- **State:** `GCM-1`–`GCM-6` done. Tooling: `node:test` suite (28 green tests),
-  ESLint + Prettier (lint-clean), token in Secret Storage, tag-triggered release workflow.
-  Latest: `GCM-6` — expanding a project (via file open or repo click) now expands it in
-  both panels **in place**, without switching sidebars/focus (replaced `reveal()` with
-  tree-model expansion; `GCM-5`'s reveal caused the focus jump). Shipped in `v0.3.1`.
-- **Latest:** `GCM-9` (`v0.3.4`) — selecting a repository in the **built-in** Source Control
-  view now expands that project in our "Pipelines" panel, via the Git extension API
-  (`repo.ui.selected` / `onDidChange`). `revealRepoByPath` in `tree-view.ts`;
-  `wireBuiltInScmSelection` in `extension.ts`. (GCM-8/v0.3.3 fixed clicks inside our own
-  panels + no sidebar jump.)
-- **Also:** `GCM-10` (`v0.3.5`) — built-in SCM selection is an accordion (only the current
-  project stays expanded in "Pipelines"). `GCM-11` (`v0.4.0`) — smarter failure notifications:
-  notify only when the failure is the branch's latest pipeline, once per `project|ref`
-  (`latestFailedByRef` in `src/notify.ts` + `notifiedFailureByRef` map).
-- **Also:** `GCM-12` (`v0.4.1`) — tree refreshes only when pipeline data changes
-  (`pipelinesSignature` in `src/signature.ts` + `lastSignature` gate), so it stops
-  re-rendering/re-fetching expanded jobs every poll. Trade-off: running pipelines update on
-  status change, not every second (offer live per-job mode via node memoization if asked).
-- **Also:** `GCM-13` (`v0.4.2`) — a failed GitLab poll no longer wipes the repo's pipeline
-  list or the notification dedup, so transient fetch errors stop causing notification spam
-  (previous items/ids are kept; only successful fetches update/prune state).
-- **Verify (UI, pending):** accordion in built-in Source Control; smart failure notifications
-  (once, latest-per-branch, no spam on flaky network); smooth/cached job expansion.
-- **Release:** `v0.3.0` is the current release (adds `GCM-5`). The tag triggers
-  `.github/workflows/release.yml`, which builds the `.vsix` and attaches it to a GitHub
-  Release; install via **Extensions: Install from VSIX…**. Marketplace/Open VSX publish
-  stays opt-in (no `VSCE_PAT`/`OVSX_PAT` secrets configured yet).
-- **Next action:** For the next release, add entries under `## [Unreleased]`, bump
-  `package.json`, move Unreleased into a dated `## [x.y.z]` section, then push the matching
-  `vX.Y.Z` tag. Otherwise, agree the next feature with the user (test-first).
+**Cutting `0.6.0`** — three user-requested features (`GCM-20`/`GCM-21`/`GCM-22`), each on its own
+`feature/*` branch → PR to `dev` → promote `dev` → `rc` → `release`. `VSCE_PAT`/`OVSX_PAT` are now
+configured, so a merge to `rc`/`release` publishes to the VS Code Marketplace + Open VSX (`rc` =
+pre-release `0.5.<N>`, `release` = stable `0.6.0`), and `release` also cuts a GitHub Release.
+
+- **GCM-20 — jobs as a stage tree + `needs` dependency tree** (in progress): pipelines expand into
+  stage nodes → job nodes → dependency leaves. Stage grouping + aggregate status are pure
+  (`groupJobsByStage`/`aggregateStageStatus`/`resolveNeeds` in `src/job-order.ts`); `needs` edges
+  via GitLab GraphQL (`getJobNeeds`/`parseJobNeeds`/`graphqlRequest` in `src/gitlab-api.ts`,
+  best-effort). `tree-view.ts` builds/caches the whole subtree. Group-(a) green (job-tree + graphql
+  tests). **Next:** GCM-21 (live-streaming job log).
+- **GCM-21 — live-streaming job log** (planned): replace the one-shot static log document with a
+  live tail (`Pseudoterminal` + incremental trace polling; GitLab exposes no trace WebSocket, so
+  this is the streaming equivalent — decision `GCM-D1`).
+- **GCM-22 — startup + auto-dismiss failure notifications** (planned): notify at startup about a
+  branch's **latest** failed pipeline (suppress older, superseded failures), once per `project|ref`;
+  and make the failure toast self-dismiss after ~2.5s (no click) via a transient notification.
+
+**Shipped so far (see `CHANGELOG.md`):** `GCM-1`…`GCM-19` — multi-root tree in Explorer + Source
+Control, status bar, smart failure notifications (`latestFailedByRef`), change-detection refresh
+gate (`pipelinesSignature`), token in Secret Storage, the `ai-project-template` standard, the
+`dev`/`rc`/`release` branch model with GitVersion, and the doc-sync CI guard.
 
 ## Legend
 
