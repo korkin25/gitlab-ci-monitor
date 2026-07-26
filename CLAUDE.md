@@ -18,8 +18,8 @@ whose trigger matches below, and keep them loaded. Working from `CLAUDE.md` alon
 
 | Before you… | Open and read |
 |---|---|
-| do **anything** | `Features.md` (numbered backlog), `TODO.md` (Current state / next action) |
-| build or change a **feature/bug** | the relevant `src/**` and its `test/*.test.ts`, `README.md` |
+| do **anything** | `TODO.md` (Current state / next action, backlog / ideas) |
+| build or change a **feature/bug** | `README.md` `## Features`, the relevant `src/**` and its `test/*.test.ts` |
 | touch the **CI / packaging / release** | `.github/workflows/ci.yml`, `.github/workflows/release.yml`, `package.json`, `.vscodeignore` |
 | change **behavior, config, or commands** | `README.md` (Features / Configuration / Commands) |
 | **commit / open a PR** | the *Per-task lifecycle* + *Documentation sync* table below |
@@ -57,15 +57,17 @@ TypeScript (strict), compiled with `tsc` to `out/`, and packaged/published with
   the language they wrote in. This applies only to the live chat, never to anything
   written into the repo.
 
-## Feature backlog — `Features.md` (root)
+## Features — `README.md` (`## Features`)
 
-- Everything the user asks to build, and every "add for brainstorm" idea, is a
-  **numbered** entry in `Features.md` at the repository **root**. Numbers are **stable
-  and never reused**. Entries are grouped by state: **Current** (in progress) ·
-  **Planned** · **Brainstorm** (ideas) · **Delivered**.
-- A new idea from the user lands here first (as Brainstorm or Planned) before it becomes
-  a task (`GCM-<n>`) in `TODO.md`.
-- `Features.md` lists **only user-facing product features** — what the software does for its users. **Never** put engineering/infra tasks there (deployment, CI/CD, release, versioning, tooling, refactors, governance) — those live in `TODO.md`/`CHANGELOG.md`. Remove any such entry from `Features.md`.
+- **User-facing product features live in `README.md`'s `## Features` section** — what the
+  extension does for its users. The VS Code Marketplace / Open VSX listing renders `README.md`,
+  so this is the canonical, user-facing feature list. Only **delivered** features belong here.
+- Backlog and ideas (not yet built) live in `TODO.md` (Planned / ideas) as `GCM-<n>` tasks. A
+  new idea from the user lands there first, then becomes a delivered `## Features` entry once
+  it ships.
+- `README.md` `## Features` lists **only user-facing product features** — what the software does
+  for its users. **Never** put engineering/infra tasks there (deployment, CI/CD, release,
+  versioning, tooling, refactors, governance) — those live in `TODO.md`/`CHANGELOG.md`.
 
 ## Documentation sync (apply without being asked)
 
@@ -73,12 +75,12 @@ Keep the docs in lockstep with the code, **in the same change** — never wait t
 
 | What changed | Update |
 |---|---|
-| New/changed feature or behavior | `Features.md` (root) entry + `README.md` |
+| New/changed feature or behavior | `README.md` `## Features` |
 | Commands, settings, activation, UI surface | `README.md` (Features / Configuration / Commands) |
 | A feature is picked up for implementation | its test file under `test/` |
 | Any user-visible change | `CHANGELOG.md` under `## [Unreleased]` (Keep a Changelog) |
 | Task started / finished / blocked, or a test's pass status | `TODO.md` |
-| User asks to build something, or "add for brainstorm" | numbered entry in `Features.md` |
+| User asks to build something, or "add for brainstorm" | `TODO.md` (Planned / ideas) |
 
 - `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/) + SemVer.
 - `TODO.md` holds only open/in-progress work; a done+verified task moves to `CHANGELOG.md`
@@ -181,7 +183,7 @@ a broken `GitVersion.yml` fails fast, before it can break a release.
 This project is developed by an AI agent under continuous, autonomous iteration.
 
 - **Design before code (MANDATORY).** No implementation — not even tests — begins until the design is finished: the approach is written down (in the ticket/`TODO.md`), including the affected `src/**` modules, the VS Code API surface touched, the user-visible behavior, and the trade-offs of the chosen option vs. alternatives. Any **architectural** decision (a new runtime dependency, a new activation/contribution point, a data-flow change) must be approved by the user before coding starts. For a trivial change the design may be a sentence — but it is still written before code.
-- Continuous development: while open bugs or features remain (see `Features.md` / `TODO.md`), keep implementing autonomously through the per-task lifecycle below. Consult the user ONLY for architectural decisions.
+- Continuous development: while open bugs or features remain (see `TODO.md`), keep implementing autonomously through the per-task lifecycle below. Consult the user ONLY for architectural decisions.
 - Test-driven: for every agreed feature write the tests FIRST (they must fail), then implement until green. No feature code without a test.
 - Feature branches: work on `feature/GCM-<n>-<slug>` off `dev`; merge to `dev` only when the full suite is green. Promote `dev` → `rc` → `release` by merging forward. **There is no `main` branch** (the legacy `main` is kept only for history).
 - Commit periodically in small logical units, Conventional Commits (feat:, fix:, test:, docs:, chore:, ci:). Never add a Co-Authored-By trailer. Push to `origin` after every commit.
@@ -195,7 +197,7 @@ This project is developed by an AI agent under continuous, autonomous iteration.
 ### Per-task lifecycle (MANDATORY — in this order)
 
 1. **Log first.** The task exists in `TODO.md` as `GCM-<n>` before any work begins. If it is not logged, log it first.
-2. **Backlog.** Ensure the feature is a numbered entry in root `Features.md`.
+2. **Backlog.** Ensure the feature is described in `README.md` `## Features` (or `TODO.md` until built).
 3. **Design.** Write the design (affected modules, VS Code API surface, behavior, trade-offs) in the ticket / `TODO.md`. **No code and no tests until it is finished**, and any architectural decision is approved by the user.
 4. **Test plan.** Once the design is fixed, decide the group-(a) tests (which `test/*.test.ts`) and any group-(b)/(c) methodology.
 5. **Branch.** Create `feature/GCM-<n>-<slug>` off `dev`.

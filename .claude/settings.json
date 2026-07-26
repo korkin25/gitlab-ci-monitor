@@ -6,7 +6,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "printf '%s' 'Reminder: CLAUDE.md is a ROUTER. Before acting, load the task-relevant files from its \"Start here — context map\" (Features.md, TODO.md, README.md, the relevant src/** + test/*.test.ts, .github/workflows/ci.yml). Keep docs in lockstep in the same change (Documentation-sync table); CI enforces it. Design before code; TDD; keep runtime dependencies at zero; GitLab tokens are full-access credentials — never log or commit them.'"
+						"command": "printf '%s' 'Reminder: CLAUDE.md is a ROUTER. Before acting, load the task-relevant files from its \"Start here — context map\" (TODO.md, README.md and its \"## Features\", the relevant src/** + test/*.test.ts, .github/workflows/ci.yml). Keep docs in lockstep in the same change (Documentation-sync table); CI enforces it. Design before code; TDD; keep runtime dependencies at zero; GitLab tokens are full-access credentials — never log or commit them.'"
 					}
 				]
 			}
@@ -16,7 +16,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "printf '%s' 'This repo follows CLAUDE.md as a router over Features.md/TODO.md/README/src/test. Read the \"Start here — context map\" before working; do not work from CLAUDE.md alone.'"
+						"command": "printf '%s' 'This repo follows CLAUDE.md as a router over TODO.md/README (\"## Features\")/src/test. Read the \"Start here — context map\" before working; do not work from CLAUDE.md alone.'"
 					}
 				]
 			}

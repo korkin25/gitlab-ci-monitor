@@ -8,7 +8,8 @@ agents alike.
 
 1. **Design before code.** No implementation until the design is written down and any
    architectural decision is agreed (affected `src/**`, VS Code API surface, trade-offs).
-2. **Log the task** in `TODO.md` as `GCM-<n>` and add it to `Features.md`.
+2. **Log the task** in `TODO.md` as `GCM-<n>`; a user-facing feature is described in
+   `README.md`'s `## Features` once built.
 3. **Branch** `feature/GCM-<n>-<slug>` off `dev` (there is no `main`; the flow is
    `feature/*` → `dev` → `rc` → `release`).
 4. **TDD** — write the failing test first (under `test/`), then implement until green. No

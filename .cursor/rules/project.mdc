@@ -10,7 +10,7 @@ The canonical, always-applicable rules for this repository live in **`/CLAUDE.md
 also reads the root `AGENTS.md`, which is a symlink to it). Read it in full before working.
 
 `CLAUDE.md` is a **router**: start from its "Start here — context map" and load the
-task-relevant files (`Features.md`, `TODO.md`, `README.md`, the relevant `src/**` and its
+task-relevant files (`TODO.md`, `README.md` (`## Features`), the relevant `src/**` and its
 `test/*.test.ts`, `.github/workflows/ci.yml`) before acting. Do not work from this pointer or
 from `CLAUDE.md` alone.
 
