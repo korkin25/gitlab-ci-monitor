@@ -62,6 +62,12 @@ export const getConfigForProject = (project: string): RepoConfig | null =>
 export const getConfigForPipeline = (pipelineId: any): RepoConfig | null =>
 	pipelineConfigById.get(Number(pipelineId)) || currentConfig;
 
+// Drop a pipeline's cached job subtree so the next render re-fetches it — called after
+// a job action (retry/cancel/play) so the change shows without waiting for a poll.
+export const invalidatePipelineJobs = (pipelineId: any): void => {
+	jobsCache.delete(Number(pipelineId));
+};
+
 const STATUS_EMOJI: { [k: string]: string } = {
 	success: '✅',
 	running: '🏃',
@@ -119,10 +125,24 @@ function createPipelineNode(pipeline: any, config: RepoConfig): any {
 		iid: pipeline.iid,
 		pipelineStatus: pipeline.status,
 		ref: pipeline.ref,
+		sha: pipeline.sha,
 		project: config.project,
 		webUrl: pipeline.web_url,
 		command: { title: 'Open in GitLab', command: 'pipeline.click', arguments: [pipeline.web_url] }
 	};
+}
+
+// The context value drives which right-click actions a job offers (see package.json
+// `view/item/context`): a running/pending job can be canceled, a manual one played,
+// a finished one retried. All start with `jobItem` so "open in GitLab" applies to any.
+function jobContextValue(status: string): string {
+	if (status === 'running' || status === 'pending' || status === 'created') {
+		return 'jobItemRunning';
+	}
+	if (status === 'manual') {
+		return 'jobItemManual';
+	}
+	return 'jobItemRetryable';
 }
 
 // A stage groups the jobs that run in it. Its label carries an aggregate status so
@@ -152,24 +172,28 @@ function createDepNode(parentJobId: number, dep: JobDep): any {
 }
 
 // A job under its stage. If it has `needs`, it is collapsible and reveals them.
+// Clicking a job streams its log live; right-click opens it in GitLab + offers actions.
 function createJobNode(job: any, config: RepoConfig, pipelineId: number, deps: JobDep[]): any {
 	const emoji = STATUS_EMOJI[job.status] || '⌛';
 	const depNodes = deps.map((d) => createDepNode(job.id, d));
-	return {
+	const node: any = {
 		id: `job:${pipelineId}:${job.id}`,
 		isJobNode: true,
 		label: `${emoji}  ${job.name || job.id}`,
 		collapsibleState: depNodes.length ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None,
 		tooltip: job.web_url,
-		contextValue: 'jobItem',
+		contextValue: jobContextValue(job.status),
 		jobId: job.id,
 		jobName: job.name,
 		jobStatus: job.status,
+		pipelineId,
 		project: config.project,
 		webUrl: job.web_url,
-		children: depNodes,
-		command: { title: 'Open job in GitLab', command: 'pipeline.click', arguments: [job.web_url] }
+		children: depNodes
 	};
+	// Left-click → stream the live log (the node carries the fields the command needs).
+	node.command = { title: 'Stream job log', command: 'pipeline.job.log', arguments: [node] };
+	return node;
 }
 
 // Build a pipeline's stage → job → dependency subtree. REST supplies the jobs (and

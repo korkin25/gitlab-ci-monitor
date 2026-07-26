@@ -20,6 +20,7 @@ import {
 	revealRepoByPath,
 	getConfigForPipeline,
 	getConfigForProject,
+	invalidatePipelineJobs,
 	setRepoExpanded
 } from './tree-view';
 import {
@@ -28,6 +29,10 @@ import {
 	getJob,
 	retryPipeline,
 	cancelPipeline,
+	retryJob,
+	cancelJob,
+	playJob,
+	commitUrl,
 	getWorkspaceDomains,
 	setTokenStore,
 	RepoConfig
@@ -129,6 +134,43 @@ export async function activate(context: ExtensionContext) {
 			}
 			updateAllPipelinesStatus(provider);
 		})
+	);
+
+	// open the commit that a pipeline ran against
+	context.subscriptions.push(
+		commands.registerCommand('pipeline.openCommit', (item: any) => {
+			const url = commitUrl(item?.webUrl || '', item?.sha || '');
+			if (!url) {
+				window.showWarningMessage('No commit URL for this pipeline.');
+				return;
+			}
+			commands.executeCommand('vscode.open', Uri.parse(url));
+		})
+	);
+
+	// single-job actions (retry / cancel / play), shared body — invalidate the pipeline's
+	// cached jobs and re-render so the new state shows without waiting for the next poll.
+	const jobAction = async (item: any, fn: (c: RepoConfig, id: number) => Promise<any>, verb: string) => {
+		const config = getConfigForProject(item?.project);
+		if (!config || !item?.jobId) {
+			return;
+		}
+		try {
+			await fn(config, Number(item.jobId));
+			window.setStatusBarMessage(`Job ${item.jobName || item.jobId} ${verb}`, 3000);
+		} catch (e) {
+			window.showErrorMessage(`Job ${verb} failed: ${e}`);
+		}
+		if (item.pipelineId != null) {
+			invalidatePipelineJobs(item.pipelineId);
+		}
+		await updateAllPipelinesStatus(provider);
+		provider.refresh();
+	};
+	context.subscriptions.push(
+		commands.registerCommand('pipeline.job.retry', (item: any) => jobAction(item, retryJob, 'retried')),
+		commands.registerCommand('pipeline.job.cancel', (item: any) => jobAction(item, cancelJob, 'canceled')),
+		commands.registerCommand('pipeline.job.play', (item: any) => jobAction(item, playJob, 'started'))
 	);
 
 	// job logs stream live into a terminal — the trace tails in as the job runs, ANSI

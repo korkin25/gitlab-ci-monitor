@@ -16,9 +16,13 @@ published version, else the Marketplace rejects it and the number is burned).
 **Release history:** `0.6.10` (odd/even bug, superseded) → `0.7.14` (pre) → `0.8.0` (stable) →
 `0.9.4` (pre, interrupted push) → `0.10.7` (pre, new scheme) → **`1.0.0`** (stable, current).
 
-**Next action:** none pending — agree the next feature with the user (test-first). New work → a
-`feature/GCM-<n>-*` branch off `dev`. To release it: `dev` → `rc` (pre-release `1.1.<N>`) → `release`
-(stable `2.0.0`), each on user "go".
+**In flight — GCM-26/27/28 (context-menu interactions).** On `feature/GCM-26-context-menu-actions`:
+(26) **click a job = stream log**, right-click = open in GitLab (swapped); (27) right-click
+**retry/cancel/play** on jobs and retry/cancel on pipelines (status-driven context values); (28)
+right-click a pipeline → **open its commit**. New REST wrappers `retryJob`/`cancelJob`/`playJob` +
+`commitUrl` in `src/gitlab-api.ts` (group-(a) green, 68 tests). **Next:** PR → `dev`, then `dev` →
+`rc` to publish a pre-release `1.1.<N>` for testing (user asked to cut `rc`). Stable `release`
+(`2.0.0`) later on a separate "go".
 
 **Shipped (see `CHANGELOG.md`):** `GCM-1`…`GCM-25` — multi-root tree in Explorer + Source Control,
 **stage/dependency job tree** (ordered by execution), **live-streaming job log**, status bar, smart

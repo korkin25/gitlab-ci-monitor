@@ -2,6 +2,23 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-26/27/28: context-menu interactions
+
+- **GCM-26 — swapped job click/right-click.** Left-click a job now streams its live log (the common
+  action); the right-click menu opens it in GitLab. The job node's `command` points at
+  `pipeline.job.log` (carrying the node as its arg); `pipeline.click` moved to the context menu.
+- **GCM-27 — retry/cancel/play from the right-click menu**, on both levels. Pipelines: retry/cancel
+  (also inline). Jobs: retry (finished) / cancel (running) / play (manual), gated by status-driven
+  context values (`jobItemRunning`/`jobItemManual`/`jobItemRetryable`) so only the applicable action
+  shows. New REST wrappers `retryJob`/`cancelJob`/`playJob` (`src/gitlab-api.ts`, injectable
+  transport for tests); after an action the pipeline's cached jobs are invalidated
+  (`invalidatePipelineJobs`) and the tree re-renders so the change shows at once.
+- **GCM-28 — open a pipeline's commit.** "Open commit in GitLab" derives the commit page from the
+  pipeline `web_url` + `sha` (`commitUrl`, pure/tested). Pipeline node now carries `sha`.
+- **Tests:** 68 group-(a) green — `commitUrl` (derive + empty-input), and `retryJob`/`cancelJob`/
+  `playJob` path assertions via a local http server. The menu/click behavior is group-(b)
+  (Extension Host). package.json gained the four commands + context-menu entries.
+
 ## 2026-07-26 — Stable 1.0.0 released (new scheme, GCM-24 + GCM-25)
 
 - **Released stable `1.0.0`** (user "go"). Promoted `dev` → `rc` → `release` under the new GCM-25

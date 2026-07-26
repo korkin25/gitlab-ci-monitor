@@ -9,7 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **GCM-27 — retry / cancel / play jobs and pipelines from the right-click menu.** The context menu
+  now offers actions on both levels: a **pipeline** can be retried or canceled (also still inline);
+  a **job** can be retried (finished), canceled (running), or played (manual). Job context values are
+  status-driven (`jobItemRunning`/`jobItemManual`/`jobItemRetryable`) so only the applicable action
+  shows. New REST wrappers `retryJob`/`cancelJob`/`playJob` (`src/gitlab-api.ts`); after an action the
+  affected pipeline's cached jobs are invalidated so the change shows immediately.
+- **GCM-28 — open a pipeline's commit in GitLab from the right-click menu.** A new "Open commit in
+  GitLab" action resolves the commit page from the pipeline's `web_url` + `sha`
+  (`commitUrl` in `src/gitlab-api.ts`).
+
 ### Changed
+
+- **GCM-26 — click a job to stream its log; right-click to open it in GitLab (swapped).** Previously
+  a click opened GitLab and the log was a context-menu action; now the primary click streams the live
+  log (the common case) and GitLab / the job actions live in the right-click menu.
 
 - **GCM-25 — simpler release version scheme (replaces GCM-23's odd/even).** Each promotion now
   bumps a higher SemVer position: `dev` = Patch (unpublished dev builds), `rc` = Minor →
