@@ -2,6 +2,12 @@
 
 ## Current state / next action
 
+- **GCM-19 done** (2026-07-26): **dropped the standalone feature-backlog file.** User-facing
+  features now live in `README.md`'s `## Features` section (the canonical, Marketplace-rendered
+  list); backlog and ideas live here in `TODO.md` (Planned / ideas). Every reference to the old
+  root backlog file was purged from `CLAUDE.md`, the `.claude/settings.json` hook,
+  `.cursor/rules/project.mdc`, the PR/issue templates, `CONTRIBUTING.md`, and the `doc-sync`
+  guard regex.
 - **GCM-14 in progress** (2026-07-26): **adopt the `ai-project-template` engineering standard**
   (feature #10), adapted for a TS VS Code extension. Branch model migrated `main` →
   `dev`/`rc`/`release` (`dev` default; `main` legacy). Done on `feature/GCM-14-full-standard`:
@@ -9,7 +15,7 @@
   --test`/`vsce package`); universal agent-rule symlinks + `.claude/settings.json` hook +
   `.cursor/rules/project.mdc`; `CLAUDE.md` rewritten to the full standard (context-map router /
   Testing policy / Versioning=package.json / Safe-autonomy / Agent-security / Design-before-code
-  / Per-task lifecycle); `Features.md`, `doc-sync.yml`, Dependabot, pre-commit (gitleaks-only),
+  / Per-task lifecycle); the feature backlog, `doc-sync.yml`, Dependabot, pre-commit (gitleaks-only),
   CODEOWNERS, PR/issue templates, SECURITY/CONTRIBUTING/CoC. `.gitlab-ci.yml` skipped (no Node
   GitLab template). `release.yml` unchanged. **Next:** push branch → PR to `dev` → analyze CI
   logs (even if green) → merge with `--no-ff` once green.
@@ -78,3 +84,13 @@ delivered test-first.
 | ID | Status | Task |
 |----|--------|------|
 | —  | —      | (empty — add new `GCM-<n>` items as they come up) |
+
+## Planned / ideas
+
+User-facing feature ideas not yet built land here first (as `GCM-<n>` tasks), then become an
+entry in `README.md`'s `## Features` once delivered. Engineering/infra work (CI, release,
+tooling, refactors) stays in the Backlog above / `CHANGELOG.md`, never here.
+
+| ID | Status | Task |
+|----|--------|------|
+| —  | —      | (none yet) |

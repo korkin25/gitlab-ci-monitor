@@ -7,7 +7,7 @@
 ## Checklist
 
 - [ ] **Design** was written/agreed before coding (architectural decisions approved).
-- [ ] Task logged in `TODO.md` and listed in `Features.md`.
+- [ ] Task logged in `TODO.md`; any user-facing feature described in `README.md` `## Features`.
 - [ ] Tests written **first** (TDD) under `test/`.
 - [ ] **Docs in lockstep** in this change (README / CHANGELOG / Features / TODO) — the
       `doc-sync` guard passes.

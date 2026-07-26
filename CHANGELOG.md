@@ -24,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **GCM-19 — dropped `Features.md`; user-facing features now live in `README.md` `## Features`.**
+  Eliminated the separate root `Features.md` backlog. Its delivered features were reconciled into
+  `README.md`'s `## Features` section — the canonical list the VS Code Marketplace / Open VSX
+  render — adding the previously-missing "Token in Secret Storage" bullet; not-yet-built ideas
+  move to `TODO.md` (Planned / ideas). Purged every `Features.md` reference from `CLAUDE.md`
+  (context-map, Features section, doc-sync table, per-task lifecycle), the `.claude/settings.json`
+  hook, `.cursor/rules/project.mdc`, the PR/issue templates, `CONTRIBUTING.md`, and the `doc-sync`
+  CI guard regex.
+
 - **GCM-18 — stable releases also cut a GitHub Release with the `.vsix` attached.** A merge to
   `release` now, in addition to the Marketplace/Open VSX publish, tags `vX.Y.Z` at the release
   commit and cuts a GitHub Release with auto-generated notes and the built `.vsix` attached
