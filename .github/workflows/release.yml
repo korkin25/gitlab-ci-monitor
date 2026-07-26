@@ -108,7 +108,8 @@ jobs:
                   path: ${{ env.VSIX }}
                   if-no-files-found: error
 
-            # Publishing is opt-in: each step runs only when its token secret is set.
+            # Publishing is opt-in: each step runs only when its token secret is set —
+            # without a token the step just shows as skipped (no separate "skipped" step).
             # vsce repackages from source at publish time (its recommended --pre-release
             # flow); the uploaded .vsix above is for manual install / record.
             - name: Publish to VS Code Marketplace
@@ -119,10 +120,6 @@ jobs:
                   else
                     npx --yes @vscode/vsce publish --no-dependencies -p "$VSCE_PAT"
                   fi
-
-            - name: Skip VS Code Marketplace publish (no token)
-              if: ${{ env.VSCE_PAT == '' }}
-              run: echo "VSCE_PAT not set — skipping marketplace publish"
 
             # ovsx publishes the already-built .vsix. Notes vs vsce:
             #   * ovsx ignores --pre-release on a prepackaged .vsix, so we never pass it.
@@ -136,10 +133,6 @@ jobs:
                   PUB=$(node -p "require('./package.json').publisher")
                   npx --yes ovsx create-namespace "$PUB" -p "$OVSX_PAT" || true
                   npx --yes ovsx publish "$VSIX" -p "$OVSX_PAT"
-
-            - name: Skip Open VSX publish (no token)
-              if: ${{ env.OVSX_PAT == '' }}
-              run: echo "OVSX_PAT not set — skipping Open VSX publish"
 
             # GitHub Release — STABLE only. A `release`-branch build tags `vX.Y.Z` at
             # this commit and cuts a GitHub Release with auto-generated notes and the

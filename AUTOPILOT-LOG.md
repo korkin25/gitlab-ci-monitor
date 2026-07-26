@@ -2,6 +2,13 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-37: drop redundant "Skip (no token)" release steps
+
+- **User feedback:** the release run showed "Publish to VS Code Marketplace" (ran) next to "Skip VS
+  Code Marketplace publish (no token)" (skipped) — mutually-exclusive noise. Removed both `Skip …
+  (no token)` echo steps from `release.yml`; a token-gated publish already renders as *skipped* when
+  its secret is absent, so the extra step added nothing. Publish steps keep their `if` guards.
+
 ## 2026-07-26 — GCM-35/36: adaptive polling + trimmed pipeline label
 
 - **GCM-35 — adaptive polling (live without Refresh).** GitLab has no pipeline-status WebSocket (its
