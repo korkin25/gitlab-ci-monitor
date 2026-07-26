@@ -7,15 +7,14 @@
 configured, so a merge to `rc`/`release` publishes to the VS Code Marketplace + Open VSX (`rc` =
 pre-release `0.5.<N>`, `release` = stable `0.6.0`), and `release` also cuts a GitHub Release.
 
-- **GCM-20 — jobs as a stage tree + `needs` dependency tree** (in progress): pipelines expand into
-  stage nodes → job nodes → dependency leaves. Stage grouping + aggregate status are pure
-  (`groupJobsByStage`/`aggregateStageStatus`/`resolveNeeds` in `src/job-order.ts`); `needs` edges
-  via GitLab GraphQL (`getJobNeeds`/`parseJobNeeds`/`graphqlRequest` in `src/gitlab-api.ts`,
-  best-effort). `tree-view.ts` builds/caches the whole subtree. Group-(a) green (job-tree + graphql
-  tests). **Next:** GCM-21 (live-streaming job log).
-- **GCM-21 — live-streaming job log** (planned): replace the one-shot static log document with a
-  live tail (`Pseudoterminal` + incremental trace polling; GitLab exposes no trace WebSocket, so
-  this is the streaming equivalent — decision `GCM-D1`).
+- **GCM-20 — jobs as a stage tree + `needs` dependency tree** ✅ merged to `dev` (PR #15, CI green):
+  pipelines expand into stage nodes → job nodes → dependency leaves. Pure logic in
+  `src/job-order.ts`; `needs` edges via GitLab GraphQL in `src/gitlab-api.ts` (best-effort).
+- **GCM-21 — live-streaming job log** (in progress, on `feature/GCM-21-live-streaming-job-log`):
+  "Stream job log (live)" opens the trace in a `Pseudoterminal` that tails in real time (incremental
+  trace polling — GitLab exposes no trace WebSocket, decision `GCM-D1`). Pure core in
+  `src/log-stream.ts` (group-(a) green); `getJob` added for live status. **Next:** PR → `dev`, then
+  GCM-22.
 - **GCM-22 — startup + auto-dismiss failure notifications** (planned): notify at startup about a
   branch's **latest** failed pipeline (suppress older, superseded failures), once per `project|ref`;
   and make the failure toast self-dismiss after ~2.5s (no click) via a transient notification.

@@ -61,7 +61,7 @@
 			},
 			{
 				"command": "pipeline.job.log",
-				"title": "View job log",
+				"title": "Stream job log (live)",
 				"category": "GitLab CI"
 			},
 			{
