@@ -21,6 +21,8 @@ export {
 	getRunningPipelines,
 	getPipelineJobs,
 	getJobTrace,
+	getJob,
+	getJobNeeds,
 	retryPipeline,
 	cancelPipeline
 } from './gitlab-api';

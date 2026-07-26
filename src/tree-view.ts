@@ -13,8 +13,8 @@ import {
 	StatusBarItem,
 	TreeView
 } from 'vscode';
-import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs } from './pipelines';
-import { orderJobs } from './job-order';
+import { RepoConfig, getAllConfigs, getRunningPipelines, getPipelineJobs, getJobNeeds } from './pipelines';
+import { groupJobsByStage, resolveNeeds, aggregateStageStatus, JobDep } from './job-order';
 import { repoProjectForPath, expansionChanges } from './expansion';
 import { latestFailedByRef } from './notify';
 import { pipelinesSignature } from './signature';
@@ -31,10 +31,11 @@ const lastStatusById: Map<number, string> = new Map();
 // last failed pipeline id we notified about, per `project|ref` — so we notify
 // once per branch failure, and only when that failure is the branch's latest.
 const notifiedFailureByRef: Map<string, number> = new Map();
-// jobs cache: the UI reads from here; the network is only touched when an entry is
-// missing or its TTL has expired. Finished pipelines keep their jobs for a long time
-// (they never change); running pipelines use a short TTL so progress still shows.
-const jobsCache: Map<number, { items: any[]; ts: number }> = new Map();
+// stage-tree cache: the UI reads from here; the network is only touched when an entry
+// is missing or its TTL has expired. Finished pipelines keep their tree for a long time
+// (it never changes); running pipelines use a short TTL so progress still shows. Each
+// entry is the pipeline's list of stage nodes (each carrying its job/dependency subtree).
+const jobsCache: Map<number, { stages: any[]; ts: number }> = new Map();
 const JOBS_TTL_RUNNING = 4000;
 const JOBS_TTL_DONE = 10 * 60 * 1000;
 let baselineDone = false;
@@ -109,11 +110,13 @@ function createPipelineNode(pipeline: any, config: RepoConfig): any {
 	const running = pipeline.status === 'running' || pipeline.status === 'pending';
 	return {
 		id: `pipe:${pipeline.id}`,
+		isPipelineNode: true,
 		label: `${emoji}  ${pipeline.id} · ${pipeline.status} · ${pipeline.ref}`,
 		collapsibleState: TreeItemCollapsibleState.Collapsed,
 		tooltip: pipeline.web_url,
 		contextValue: running ? 'pipelineItemRunning' : 'pipelineItemRetryable',
 		pipelineId: pipeline.id,
+		iid: pipeline.iid,
 		pipelineStatus: pipeline.status,
 		ref: pipeline.ref,
 		project: config.project,
@@ -122,21 +125,78 @@ function createPipelineNode(pipeline: any, config: RepoConfig): any {
 	};
 }
 
-function createJobNode(job: any, config: RepoConfig): any {
-	const emoji = STATUS_EMOJI[job.status] || '⌛';
-	const stage = job.stage ? `[${job.stage}] ` : '';
+// A stage groups the jobs that run in it. Its label carries an aggregate status so
+// the pipeline reads at a glance without expanding every stage.
+function createStageNode(pipelineId: number, stage: string, jobNodes: any[], jobs: any[]): any {
+	const emoji = STATUS_EMOJI[aggregateStageStatus(jobs)] || '⌛';
 	return {
-		id: `job:${job.id}`,
-		label: `${emoji}  ${stage}${job.name || job.id}`,
+		id: `stage:${pipelineId}:${stage}`,
+		isStageNode: true,
+		label: `${emoji}  ${stage || 'jobs'} (${jobNodes.length})`,
+		collapsibleState: TreeItemCollapsibleState.Expanded,
+		contextValue: 'stageItem',
+		children: jobNodes
+	};
+}
+
+// A leaf under a job showing one of its `needs` (the DAG edge) and that job's status.
+function createDepNode(parentJobId: number, dep: JobDep): any {
+	const emoji = STATUS_EMOJI[dep.status] || '❔';
+	return {
+		id: `dep:${parentJobId}:${dep.name}`,
+		isDepNode: true,
+		label: `↳ ${emoji} ${dep.name}`,
 		collapsibleState: TreeItemCollapsibleState.None,
+		tooltip: `needs: ${dep.name} — ${dep.status}`
+	};
+}
+
+// A job under its stage. If it has `needs`, it is collapsible and reveals them.
+function createJobNode(job: any, config: RepoConfig, pipelineId: number, deps: JobDep[]): any {
+	const emoji = STATUS_EMOJI[job.status] || '⌛';
+	const depNodes = deps.map((d) => createDepNode(job.id, d));
+	return {
+		id: `job:${pipelineId}:${job.id}`,
+		isJobNode: true,
+		label: `${emoji}  ${job.name || job.id}`,
+		collapsibleState: depNodes.length ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None,
 		tooltip: job.web_url,
 		contextValue: 'jobItem',
 		jobId: job.id,
 		jobName: job.name,
+		jobStatus: job.status,
 		project: config.project,
 		webUrl: job.web_url,
+		children: depNodes,
 		command: { title: 'Open job in GitLab', command: 'pipeline.click', arguments: [job.web_url] }
 	};
+}
+
+// Build a pipeline's stage → job → dependency subtree. REST supplies the jobs (and
+// their stages); GraphQL supplies the `needs` DAG — best-effort, so a token without
+// GraphQL scope (or an old GitLab) simply yields jobs with no dependency edges.
+async function buildStageTree(config: RepoConfig, pipelineId: number, iid: any): Promise<any[]> {
+	let jobs: any[];
+	try {
+		jobs = await getPipelineJobs(config, pipelineId);
+	} catch (e) {
+		jobs = [];
+	}
+	let needs = new Map<string, string[]>();
+	if (iid != null) {
+		try {
+			needs = await getJobNeeds(config, iid);
+		} catch (e) {
+			needs = new Map();
+		}
+	}
+	const depsByName = resolveNeeds(jobs, needs);
+	return groupJobsByStage(jobs).map((g) => {
+		const jobNodes = g.jobs.map((j) =>
+			createJobNode(j, config, pipelineId, depsByName.get((j?.name || '').trim()) || [])
+		);
+		return createStageNode(pipelineId, g.stage, jobNodes, g.jobs);
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -172,7 +232,15 @@ export class TreeViewProvider implements TreeDataProvider<TreeItem> {
 		if (element.isRepoNode) {
 			return pipelinesByRepo.get(element.project) || [];
 		}
-		if (element.pipelineId != null) {
+		// Stage and job nodes carry their own subtree, built once when the pipeline
+		// was expanded — no extra fetch, just hand back the cached children.
+		if (element.isStageNode || element.isJobNode) {
+			return element.children || [];
+		}
+		if (element.isDepNode) {
+			return [];
+		}
+		if (element.isPipelineNode) {
 			const id = Number(element.pipelineId);
 			const config = pipelineConfigById.get(id) || currentConfig;
 			if (!config) {
@@ -183,17 +251,11 @@ export class TreeViewProvider implements TreeDataProvider<TreeItem> {
 				status === 'running' || status === 'pending' || status === 'created' ? JOBS_TTL_RUNNING : JOBS_TTL_DONE;
 			const cached = jobsCache.get(id);
 			if (cached && Date.now() - cached.ts < ttl) {
-				return cached.items;
+				return cached.stages;
 			}
-			let jobs: any[];
-			try {
-				jobs = await getPipelineJobs(config, id);
-			} catch (e) {
-				jobs = [];
-			}
-			const items = orderJobs(jobs).map((j) => createJobNode(j, config));
-			jobsCache.set(id, { items, ts: Date.now() });
-			return items;
+			const stages = await buildStageTree(config, id, element.iid);
+			jobsCache.set(id, { stages, ts: Date.now() });
+			return stages;
 		}
 		return [];
 	}

@@ -10,15 +10,23 @@ Monitor your GitLab pipelines in real time, right inside VS Code — across **ev
 
 ## Features
 
-- **Multi-root aware.** Every workspace folder that is a git repo and has a `.gitlab-ci.yml` is watched. Pipelines are grouped per repository:
+- **Multi-root aware.** Every workspace folder that is a git repo and has a `.gitlab-ci.yml` is watched. Pipelines are grouped per repository, and each pipeline expands into a **stage tree with the job dependency (`needs`) graph**:
   ```
   📦 repo-a · main (20)
      ✅  123 · success · main
-        ✅  [build] compile
-        ✅  [test] unit
+        ✅  build (2)
+           ✅  compile
+           ✅  lint
+        ✅  test (1)
+           ✅  unit
+              ↳ ✅ compile
+        🚦  deploy (1)
+           🚦  deploy
+              ↳ ✅ unit
   📦 repo-b · dev (20)
      🏃  456 · running · dev
   ```
+- **Stage & dependency tree.** Jobs are no longer a flat list: they nest under their **stage** (with an at-a-glance aggregate status per stage), and any job with `needs` expands to show the jobs it depends on — the CI DAG, right in the tree. Stage grouping comes from the REST API; the `needs` edges from GitLab GraphQL (best-effort — a token without GraphQL access simply shows no dependency edges).
 - **Two homes.** The tree shows up under **Source Control** *and* the **Explorer** — pick whichever panel you live in. Opening a file in a project, or selecting a repository in the built-in **Source Control** list, expands that project in the panel — **in place, without switching sidebars or stealing focus**.
 - **Status bar indicator.** The pipeline status of the active editor's repo/branch is shown in the status bar; click it to open the pipeline in GitLab. It follows you as you switch files.
 - **Smart failure notifications.** A desktop notification pops up only when the **latest** pipeline for a branch has `failed` — and only **once per branch failure**. If a newer run on that branch succeeds, no notification. Toggle with `notifyOnFailed`.
