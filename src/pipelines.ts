@@ -21,6 +21,7 @@ export {
 	getRunningPipelines,
 	getPipelineJobs,
 	getJobTrace,
+	fetchJobTraceRange,
 	getJob,
 	getJobNeeds,
 	cancelPipeline,

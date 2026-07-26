@@ -2,6 +2,24 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-38/39: live log as tail + loading spinner for pipelines
+
+- **GCM-38 — live log is a `tail`.** Big logs made the live view slow because we downloaded the whole
+  trace. Now `fetchJobTraceRange` (HTTP `Range`) pulls only the last ~64 KiB / 200 lines initially,
+  then appends only new bytes from the last offset each poll. `startLogStream` was reworked from
+  string-delta to a **byte-offset** model (`fetchTail(fromByte)` dep); new pure helpers
+  `dropPartialFirstLine`/`lastLines`/`parseContentRangeTotal` (tested). Graceful fallback when GitLab
+  ignores `Range` (200 → slice the full body). The terminal header notes "live tail — last N lines".
+  Rationale (user): the full log is on GitLab; live = tail for a devops.
+- **GCM-39 — loading spinner instead of an empty pipeline.** Per the user's UX: expand → if cached,
+  show; else spin and keep refreshing until data arrives, then show. `getChildren` now returns a
+  spinning `createLoadingNode` (ThemeIcon `sync~spin`) when a fetch fails and there is no stale cache,
+  while the GCM-32 background retry keeps trying; on success the refresh replaces the spinner. Genuine
+  zero-job pipelines still show empty.
+- **WebSocket (re-asked):** reaffirmed GitLab has no PAT-authable pipeline-status WebSocket (its own UI
+  polls; GraphQL subscriptions are limited/ActionCable/fragile) — the continuous-update equivalent is
+  the adaptive polling already shipped in GCM-35 (~2s while running).
+
 ## 2026-07-26 — GCM-37: drop redundant "Skip (no token)" release steps
 
 - **User feedback:** the release run showed "Publish to VS Code Marketplace" (ran) next to "Skip VS

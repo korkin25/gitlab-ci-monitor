@@ -96,6 +96,52 @@ export function getJobTrace(conf: RepoConfig, jobId: number): Promise<string> {
 	return apiRequest(conf, `/jobs/${jobId}/trace`, 'GET', true) as Promise<string>;
 }
 
+/**
+ * Fetch a byte range of a job trace (for tailing the log without downloading it all).
+ * `range` is an HTTP Range value, e.g. `bytes=-65536` (last 64 KiB) or `bytes=1000-`
+ * (from offset 1000). Resolves for any status (206/200/416/…) so the caller can react;
+ * `contentRange` is the raw `Content-Range` header (has the total size). If GitLab
+ * ignores Range it returns 200 with the full body — the caller falls back to slicing.
+ */
+export function fetchJobTraceRange(
+	conf: RepoConfig,
+	jobId: number,
+	range: string,
+	transport: Transport = https.request
+): Promise<{ status: number; body: string; contentRange: string }> {
+	return new Promise((resolve, reject) => {
+		if (!conf.token) {
+			return reject(new Error(`No token for '${conf.domain}'`));
+		}
+		let options: RequestOptions;
+		try {
+			options = buildRequestOptions(conf, `/jobs/${jobId}/trace`, 'GET').options;
+		} catch (e) {
+			return reject(e);
+		}
+		options.headers = { ...(options.headers || {}), Range: range };
+		const req = transport(options, (res) => {
+			let data = '';
+			res.on('data', (chunk) => {
+				data += chunk;
+			});
+			res.on('end', () => {
+				const cr = res.headers['content-range'];
+				resolve({
+					status: res.statusCode || 0,
+					body: data,
+					contentRange: typeof cr === 'string' ? cr : ''
+				});
+			});
+		});
+		req.on('error', reject);
+		req.on('timeout', () => {
+			req.destroy(new Error('request timeout'));
+		});
+		req.end();
+	});
+}
+
 /** Fetch a single job (used to read its live status while streaming its log). */
 export function getJob(conf: RepoConfig, jobId: number): Promise<any> {
 	return apiRequest(conf, `/jobs/${jobId}`);

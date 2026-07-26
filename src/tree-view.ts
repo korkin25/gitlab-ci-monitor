@@ -8,6 +8,7 @@ import {
 	window,
 	workspace,
 	ProgressLocation,
+	ThemeIcon,
 	StatusBarAlignment,
 	StatusBarItem,
 	TreeView
@@ -278,6 +279,19 @@ function createStageNode(pipelineId: number, stage: string, jobNodes: any[], job
 	};
 }
 
+// Shown under a pipeline while its jobs are still being fetched (or a fetch failed and
+// we are retrying) — a spinning "loading" placeholder instead of a misleading empty node.
+function createLoadingNode(pipelineId: number): any {
+	return {
+		id: `loading:${pipelineId}`,
+		isLoadingNode: true,
+		label: 'loading jobs…',
+		iconPath: new ThemeIcon('sync~spin'),
+		collapsibleState: TreeItemCollapsibleState.None,
+		contextValue: 'loadingItem'
+	};
+}
+
 // A leaf under a job showing one of its `needs` (the DAG edge) and that job's status.
 function createDepNode(parentJobId: number, dep: JobDep): any {
 	const emoji = STATUS_EMOJI[dep.status] || '❔';
@@ -413,12 +427,13 @@ export class TreeViewProvider implements TreeDataProvider<TreeItem> {
 				return stages;
 			} catch (e) {
 				// A failed/timed-out fetch must NOT be cached as "no jobs" — otherwise the
-				// pipeline stays expanded-but-empty. Leave the cache alone and queue a
-				// BACKGROUND re-fetch that keeps trying until it succeeds, so the data is
-				// ready in the cache even if the user collapses and comes back later.
+				// pipeline stays expanded-but-empty. Queue a BACKGROUND re-fetch that keeps
+				// trying until it succeeds (ready in the cache even if the user navigates
+				// away), and meanwhile show the stale subtree if we have one, else a
+				// spinning "loading jobs…" placeholder — never a misleading empty node.
 				jobRetryQueue.set(id, { config, iid: element.iid });
 				ensureJobRetryLoop(this);
-				return cached ? cached.stages : [];
+				return cached ? cached.stages : [createLoadingNode(id)];
 			}
 		}
 		return [];

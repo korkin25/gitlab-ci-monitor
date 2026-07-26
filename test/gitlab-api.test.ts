@@ -10,8 +10,36 @@ import {
 	retryJob,
 	cancelJob,
 	playJob,
-	runPipeline
+	runPipeline,
+	fetchJobTraceRange
 } from '../src/gitlab-api';
+
+test('fetchJobTraceRange sends the Range header and returns status/body/content-range', async () => {
+	const server = http.createServer((req, res) => {
+		assert.equal(req.headers['range'], 'bytes=-100');
+		res.writeHead(206, { 'content-range': 'bytes 900-999/1000', 'content-type': 'text/plain' });
+		res.end('tail bytes');
+	});
+	await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+	const { port } = server.address() as AddressInfo;
+	try {
+		const conf: RepoConfig = {
+			domain: 'gitlab.com',
+			project: 'group/sub/repo',
+			currentBranch: 'main',
+			apiUrl: `http://127.0.0.1:${port}/api/v4`,
+			token: 'secret-token',
+			interval: 5000,
+			notifyOnFailed: true
+		};
+		const res = await fetchJobTraceRange(conf, 9, 'bytes=-100', http.request);
+		assert.equal(res.status, 206);
+		assert.equal(res.body, 'tail bytes');
+		assert.equal(res.contentRange, 'bytes 900-999/1000');
+	} finally {
+		server.close();
+	}
+});
 
 test('runPipeline POSTs to /pipeline with the ref as a query param', async () => {
 	let seen: { method?: string; url?: string } = {};
