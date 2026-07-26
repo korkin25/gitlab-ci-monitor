@@ -2,6 +2,21 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — Stable 0.8.0 released + opened next cycle (next-version 0.10.0)
+
+- **Released stable `0.8.0`** (user "go"). Promoted `dev` → `rc` → `release`: `rc` published
+  pre-release **`0.7.14`** (fixed scheme; the patch is the commit counter, which had grown from the
+  dry-run's 10), then `release` published **stable `0.8.0`** to the VS Code Marketplace + Open VSX,
+  with a GitHub Release `v0.8.0` carrying the `.vsix`. Timeline: `0.6.10` (buggy pre-release,
+  superseded) → `0.7.14` (fixed pre-release) → `0.8.0` (stable). All three features (GCM-20/21/22)
+  are in the stable channel.
+- **Opened the next cycle: `next-version` `0.8.0` → `0.10.0`.** The odd/even scheme requires bumping
+  the even-minor target by two after each stable (the odd minor between is the pre-release channel),
+  and — critically — leaving `next-version` at `0.8.0` would make the next `rc` push compute
+  `0.7.<N>` **below** the live stable `0.8.0` and get rejected. So the repo is left ready: next
+  cycle's rc = `0.9.<N>`, stable = `0.10.0`. Documented the cadence rule + the pre-push GitVersion
+  dry-run gate in `TODO.md`.
+
 ## 2026-07-26 — GCM-23: fix the release version scheme (odd/even)
 
 - **Fixed the odd/even version scheme so a clean stable can supersede the burned `0.6.10`.** Two

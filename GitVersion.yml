@@ -30,7 +30,10 @@
 # pre-release, so next-version now starts at 0.8.0: a clean even minor above the
 # burned 0.6.10.
 mode: ContinuousDelivery
-next-version: 0.8.0
+# Even minor = the next STABLE target. Bump by TWO each stable cycle (odd minors
+# are the pre-release channel): 0.8.0 shipped, so the next cycle heads to 0.10.0
+# — its rc pre-releases are 0.9.<N> (odd, above 0.8.0); its stable is 0.10.0.
+next-version: 0.10.0
 
 branches:
     dev:
