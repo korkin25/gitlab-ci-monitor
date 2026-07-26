@@ -113,14 +113,18 @@ function createRepoNode(config: RepoConfig, count: number): any {
 
 function createPipelineNode(pipeline: any, config: RepoConfig): any {
 	const emoji = STATUS_EMOJI[pipeline.status] || '⌛';
-	const running = pipeline.status === 'running' || pipeline.status === 'pending';
+	const status = pipeline.status;
+	const running = status === 'running' || status === 'pending' || status === 'created';
+	// "Retry" only makes sense on a failed/canceled pipeline (it re-runs the failed
+	// jobs); a finished-clean pipeline offers "Run new pipeline" instead, not retry.
+	const retryable = status === 'failed' || status === 'canceled';
 	return {
 		id: `pipe:${pipeline.id}`,
 		isPipelineNode: true,
 		label: `${emoji}  ${pipeline.id} · ${pipeline.status} · ${pipeline.ref}`,
 		collapsibleState: TreeItemCollapsibleState.Collapsed,
 		tooltip: pipeline.web_url,
-		contextValue: running ? 'pipelineItemRunning' : 'pipelineItemRetryable',
+		contextValue: running ? 'pipelineItemRunning' : retryable ? 'pipelineItemRetryable' : 'pipelineItemDone',
 		pipelineId: pipeline.id,
 		iid: pipeline.iid,
 		pipelineStatus: pipeline.status,

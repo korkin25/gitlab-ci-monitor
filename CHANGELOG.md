@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GCM-29 — clarify "Retry pipeline" and add "Run new pipeline".** "Retry pipeline" (which re-runs a
+  pipeline's *failed/canceled* jobs) is now offered **only on a failed/canceled pipeline** — it no
+  longer appears on a green pipeline where it would be a confusing no-op. A new **"Run new pipeline"**
+  action creates a fresh pipeline on the pipeline's ref (`runPipeline` → `POST /pipeline?ref=…`),
+  available inline on finished pipelines and in every pipeline's right-click menu. After a
+  retry/run the pipeline's jobs are invalidated and the tree re-renders so the change shows at once.
+
 - **GCM-27 — retry / cancel / play jobs and pipelines from the right-click menu.** The context menu
   now offers actions on both levels: a **pipeline** can be retried or canceled (also still inline);
   a **job** can be retried (finished), canceled (running), or played (manual). Job context values are

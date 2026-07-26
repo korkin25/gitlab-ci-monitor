@@ -49,9 +49,15 @@
 			},
 			{
 				"command": "pipeline.retry",
-				"title": "Retry pipeline",
+				"title": "Retry pipeline (rerun failed jobs)",
 				"category": "GitLab CI",
 				"icon": "$(debug-restart)"
+			},
+			{
+				"command": "pipeline.run",
+				"title": "Run new pipeline",
+				"category": "GitLab CI",
+				"icon": "$(run-all)"
 			},
 			{
 				"command": "pipeline.cancel",
@@ -139,6 +145,11 @@
 					"group": "inline"
 				},
 				{
+					"command": "pipeline.run",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemDone",
+					"group": "inline"
+				},
+				{
 					"command": "pipeline.retry",
 					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemRetryable",
 					"group": "1_actions"
@@ -146,6 +157,11 @@
 				{
 					"command": "pipeline.cancel",
 					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem == pipelineItemRunning",
+					"group": "1_actions"
+				},
+				{
+					"command": "pipeline.run",
+					"when": "(view == gitlabCiMonitor.explorer || view == gitlabCiMonitor.scm) && viewItem =~ /^pipelineItem/",
 					"group": "1_actions"
 				},
 				{

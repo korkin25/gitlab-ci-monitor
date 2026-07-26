@@ -2,6 +2,19 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-29: fix "Retry pipeline" confusion + add "Run new pipeline"
+
+- **User report:** the inline "Retry pipeline" icon seemed to do nothing. Cause: it showed on ANY
+  non-running pipeline, but GitLab's `POST /pipelines/:id/retry` only re-runs a pipeline's
+  **failed/canceled** jobs — on a green pipeline it is a no-op, and the only feedback was a brief
+  status-bar message.
+- **Fix:** "Retry" is now offered **only on failed/canceled pipelines** (new context value
+  `pipelineItemDone` for finished-clean ones, which get "Run new pipeline" instead). After a retry the
+  pipeline's jobs cache is invalidated and the tree re-renders.
+- **Added "Run new pipeline"** (`runPipeline` → `POST /pipeline?ref=…`) — a fresh run on the ref,
+  which is likely what "retry" was expected to do. Inline on finished pipelines + in every pipeline's
+  right-click menu. Path-assertion test added (69 group-(a) green).
+
 ## 2026-07-26 — GCM-26/27/28: context-menu interactions
 
 - **GCM-26 — swapped job click/right-click.** Left-click a job now streams its live log (the common

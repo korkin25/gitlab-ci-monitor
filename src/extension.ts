@@ -29,6 +29,7 @@ import {
 	getJob,
 	retryPipeline,
 	cancelPipeline,
+	runPipeline,
 	retryJob,
 	cancelJob,
 	playJob,
@@ -112,11 +113,32 @@ export async function activate(context: ExtensionContext) {
 			}
 			try {
 				await retryPipeline(config, item.pipelineId);
-				window.setStatusBarMessage(`Pipeline #${item.pipelineId} retried`, 3000);
+				window.setStatusBarMessage(`Pipeline #${item.pipelineId} — retrying failed jobs`, 3000);
 			} catch (e) {
 				window.showErrorMessage(`Retry failed: ${e}`);
 			}
-			updateAllPipelinesStatus(provider);
+			invalidatePipelineJobs(item.pipelineId);
+			await updateAllPipelinesStatus(provider);
+			provider.refresh();
+		})
+	);
+
+	// run a brand-new pipeline on a pipeline's ref (a fresh run, not a retry)
+	context.subscriptions.push(
+		commands.registerCommand('pipeline.run', async (item: any) => {
+			const config = getConfigForPipeline(item?.pipelineId) || getConfigForProject(item?.project);
+			const ref = item?.ref || (config && config.currentBranch);
+			if (!config || !ref) {
+				return;
+			}
+			try {
+				const created = await runPipeline(config, ref);
+				window.setStatusBarMessage(`New pipeline #${created?.id ?? ''} started on ${ref}`, 3000);
+			} catch (e) {
+				window.showErrorMessage(`Run pipeline failed: ${e}`);
+			}
+			await updateAllPipelinesStatus(provider);
+			provider.refresh();
 		})
 	);
 

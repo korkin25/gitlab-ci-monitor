@@ -9,8 +9,36 @@ import {
 	commitUrl,
 	retryJob,
 	cancelJob,
-	playJob
+	playJob,
+	runPipeline
 } from '../src/gitlab-api';
+
+test('runPipeline POSTs to /pipeline with the ref as a query param', async () => {
+	let seen: { method?: string; url?: string } = {};
+	const server = http.createServer((req, res) => {
+		seen = { method: req.method, url: req.url };
+		res.writeHead(201, { 'content-type': 'application/json' });
+		res.end(JSON.stringify({ id: 7, status: 'created' }));
+	});
+	await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+	const { port } = server.address() as AddressInfo;
+	try {
+		const conf: RepoConfig = {
+			domain: 'gitlab.com',
+			project: 'group/sub/repo',
+			currentBranch: 'main',
+			apiUrl: `http://127.0.0.1:${port}/api/v4`,
+			token: 'secret-token',
+			interval: 5000,
+			notifyOnFailed: true
+		};
+		await runPipeline(conf, 'feature/x y', http.request);
+		assert.equal(seen.method, 'POST');
+		assert.equal(seen.url, '/api/v4/projects/group%2Fsub%2Frepo/pipeline?ref=feature%2Fx%20y');
+	} finally {
+		server.close();
+	}
+});
 
 test('commitUrl derives the commit page from a pipeline web_url + sha', () => {
 	assert.equal(

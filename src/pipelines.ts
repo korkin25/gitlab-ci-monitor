@@ -25,6 +25,7 @@ export {
 	getJobNeeds,
 	retryPipeline,
 	cancelPipeline,
+	runPipeline,
 	retryJob,
 	cancelJob,
 	playJob,

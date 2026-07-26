@@ -207,6 +207,11 @@ export function cancelPipeline(conf: RepoConfig, pipelineId: number): Promise<an
 	return apiRequest(conf, `/pipelines/${pipelineId}/cancel`, 'POST');
 }
 
+/** Create a NEW pipeline on `ref` (a fresh run) — distinct from retrying failed jobs. */
+export function runPipeline(conf: RepoConfig, ref: string, transport: Transport = https.request): Promise<any> {
+	return apiRequest(conf, `/pipeline?ref=${encodeURIComponent(ref)}`, 'POST', false, transport);
+}
+
 // --- single-job actions (retry a finished job, cancel a running one, play a manual one) ---
 export function retryJob(conf: RepoConfig, jobId: number, transport: Transport = https.request): Promise<any> {
 	return apiRequest(conf, `/jobs/${jobId}/retry`, 'POST', false, transport);
