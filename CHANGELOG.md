@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **GCM-23 — fix the odd/even release version scheme so a clean stable can ship.** Promoting
+  `dev` → `rc` had published a pre-release **`0.6.10`** (not the intended `0.5.<N>`), which is
+  **above** the `0.6.1` a stable would compute — and since the Marketplace keeps one increasing
+  version line across both channels, the stable was un-publishable. Root cause: `rc` had
+  `increment: Minor` in `GitVersion.yml`, so GitVersion computed `0.7.0` on `rc` and `release.yml`'s
+  `minor-1` formula landed back on the stable's even minor. Fixed by setting `rc` `increment: None`
+  (so `rc` keeps `MajorMinorPatch == next-version` and `minor-1` yields the odd minor just below the
+  even stable) and bumping `next-version` `0.6.0` → **`0.8.0`** (a clean even minor above the burned
+  `0.6.10`). Verified with a local GitVersion dry-run: `rc` → pre-release `0.7.10`, `release` →
+  stable `0.8.0`. `release.yml`'s versioning-convention comments were updated to match.
+
 ### Added
 
 - **GCM-22 — announce a branch's latest failure at startup, and self-dismiss the toast.** Two

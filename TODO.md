@@ -12,13 +12,17 @@ pre-release channel.
   (no trace WebSocket, decision `GCM-D1`).
 - **GCM-22 — startup + auto-dismiss failure notifications** ✅ (PR #17).
 
-**Stable `release` is BLOCKED — see `GCM-23`.** The `rc` publish came out as `0.6.10`, not the
-`0.5.<N>` the odd/even scheme intended, so a stable cut (which GitVersion computes as `0.6.1`) is now
-**below** the live pre-release and the Marketplace would reject it. Fix the version scheme
-(`GCM-23`) before cutting a stable; `next-version` will need to move above `0.6.10`.
+**GCM-23 — version scheme FIXED (verified via local dry-run).** The stable `release` was blocked
+because the `rc` publish came out as `0.6.10` (not the intended `0.5.<N>`), above the `0.6.1` a
+stable would compute → Marketplace would reject the stable. Fixed in `GitVersion.yml`: `rc`
+`increment: Minor` → `None` (so `rc` keeps `MajorMinorPatch == next-version`, and release.yml's
+`minor-1` yields the odd minor just below stable), and `next-version` `0.6.0` → `0.8.0` (clean even
+minor above the burned `0.6.10`). A local GitVersion dry-run confirms: `rc` → pre-release **`0.7.10`**
+(odd, `> 0.6.10`, `< 0.8.0`), `release` → stable **`0.8.0`** (even, above everything). release.yml
+comments updated to match.
 
-**Next action:** `GCM-23` — fix the release version scheme, then cut a clean stable that supersedes
-`0.6.10`. Until then, `0.6.10` (pre-release) is the current release.
+**Next action:** merge `GCM-23` (PR #18) → `dev`, then promote `dev` → `rc` (publishes `0.7.10`
+pre-release) → `release` (publishes stable **`0.8.0`** + GitHub Release).
 
 **Shipped so far (see `CHANGELOG.md`):** `GCM-1`…`GCM-22` — multi-root tree in Explorer + Source
 Control, **stage/dependency job tree**, **live-streaming job log**, status bar, smart failure
