@@ -33,3 +33,33 @@ export function latestFailedByRef(pipelines: PipelineLite[]): { ref: string; id:
 	}
 	return out;
 }
+
+/**
+ * From the branch's latest failures, keep only the ones we have NOT already notified
+ * about — comparing against `notified` (a `project|ref` → last-notified-id map). With
+ * an empty `notified` (extension startup) every current latest-failure is returned, so
+ * a red branch is announced at startup; on later polls only a *new* failure id for a
+ * ref survives, so each failure notifies exactly once. Superseded/older failures never
+ * appear here because `latestFailedByRef` already dropped them upstream.
+ */
+export function pendingFailureNotifications(
+	latestFailed: { ref: string; id: number }[],
+	project: string,
+	notified: Map<string, number>
+): { ref: string; id: number; key: string }[] {
+	const out: { ref: string; id: number; key: string }[] = [];
+	for (const { ref, id } of latestFailed) {
+		const key = `${project}|${ref}`;
+		if (notified.get(key) === id) {
+			continue; // already announced this exact failure
+		}
+		out.push({ ref, id, key });
+	}
+	return out;
+}
+
+/** The user-facing text for a failed-pipeline notification. */
+export function formatFailureMessage(project: string, ref: string, id: number): string {
+	const short = (project || '').split('/').filter(Boolean).slice(-1)[0] || project;
+	return `❌ Pipeline #${id} failed — ${short} (${ref})`;
+}

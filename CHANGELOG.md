@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GCM-22 — announce a branch's latest failure at startup, and self-dismiss the toast.** Two
+  changes to failure notifications: (1) the notification now fires on **every** poll including the
+  first, so a branch whose latest pipeline is already `failed` is announced **at startup** — older,
+  already-superseded failures are still never shown (only the branch's latest), and each failure
+  still notifies **once** per `project|ref`. The startup-suppression that hid even the current red
+  state is gone. (2) The toast is now **self-dismissing**: it needs no click and slides away after
+  ~2.5s (a progress notification whose task resolves on a timer), instead of an error message with
+  an "Open in GitLab" button that stayed until dismissed. New pure, unit-tested helpers in
+  `src/notify.ts` (`pendingFailureNotifications`, `formatFailureMessage`).
+
 - **GCM-21 — job logs stream live into a terminal instead of a static document.** "Stream job log
   (live)" now opens the trace in a `Pseudoterminal` that tails in real time as the job runs: each
   poll fetches the trace and only the newly-appended tail is written, so output arrives

@@ -2,6 +2,22 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-22: latest-failure-at-startup + self-dismissing toast
+
+- **Announce a branch's latest failure at startup.** Failure notifications previously suppressed
+  everything on the first poll (GCM-11's baseline), so you never learned at startup that your latest
+  pipeline was red. Now the notification fires on every poll including the first: a branch whose
+  latest pipeline is `failed` is announced at startup, while older/superseded failures stay hidden
+  (still only the branch's latest, via `latestFailedByRef`) and each failure still fires once per
+  `project|ref`. Removed the `baselineDone` gate.
+- **Self-dismissing toast.** The failure notification no longer stays until dismissed (an Error
+  message with an "Open in GitLab" button did). It is now a progress notification whose task resolves
+  on a ~2.5s timer, so it needs no click and slides away on its own (`showTransientFailure` +
+  `FAILURE_TOAST_MS` in `tree-view.ts`).
+- **Pure, unit-tested** decision logic extracted to `src/notify.ts`: `pendingFailureNotifications`
+  (startup-notify + once-each dedup) and `formatFailureMessage`. _Reverse:_ revert the branch;
+  git history holds the previous notifier.
+
 ## 2026-07-26 — GCM-21: live-streaming job log (Pseudoterminal)
 
 - **Replaced the one-shot static log document with a live tail.** "Stream job log (live)" now opens
