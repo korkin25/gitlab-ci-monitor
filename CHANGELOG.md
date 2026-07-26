@@ -46,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **GCM-37 — drop the redundant "Skip … (no token)" release steps.** `release.yml` had a paired
+  `Skip … (no token)` echo step next to each marketplace publish; since a token-gated publish step
+  already shows as *skipped* when its secret is absent, the extra step was pure noise (one green, one
+  skipped, side by side). Removed both — the publish steps keep their `if: <token> != ''` guards.
+
 - **GCM-36 — drop the redundant status word from a pipeline's label.** The status emoji already
   conveys success/failed/running, so the label is now `#id · ref · duration` instead of
   `#id · status · ref` (jobs never showed the word).
