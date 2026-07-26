@@ -8,16 +8,15 @@
 # release.yml sets package.json from GitVersion at publish time via `npm version`.
 #
 # VERSIONING CONVENTION. Marketplace versions must be plain X.Y.Z — a `-rc.N` SemVer
-# suffix is NOT accepted by the VS Code Marketplace. Pre-releases therefore publish a
-# *distinct, increasing* X.Y.Z with the `--pre-release` flag rather than a SemVer
-# pre-release suffix. We follow Microsoft's ODD-minor-for-pre-release / EVEN-minor-for
-# -stable scheme so the two channels never collide on the single increasing version
-# line (see GitVersion.yml, GCM-23):
-#   * release: V = majorMinorPatch          (e.g. 0.8.0), even minor, stable
-#   * rc:      V = major.(minor-1).preReleaseNumber (e.g. 0.7.10), odd minor,
-#              --pre-release — strictly below the stable it leads to. `rc` keeps
-#              majorMinorPatch == next-version (increment: None), so minor-1 is the
-#              odd minor just below the even stable. See
+# suffix is NOT accepted, so we publish plain, strictly-increasing X.Y.Z on both
+# channels. Each promotion bumps a higher SemVer position (see GitVersion.yml):
+#   * rc      -> pre-release: V = major.minor.<preReleaseNumber>  (e.g. 0.10.0, 0.10.1)
+#               `rc` bumps the MINOR, and the commit counter drives the patch, so a
+#               cycle's pre-releases increase; published with `--pre-release`.
+#   * release -> stable:      V = majorMinorPatch                 (e.g. 1.0.0)
+#               `release` bumps the MAJOR, so the stable is above every pre-release.
+# Because rc lands on a new minor and release on a new major, every publish is
+# strictly greater than the last across both channels — the only Marketplace rule.
 # https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions
 #
 # Publishing is opt-in: each marketplace step runs only when its token secret is set
@@ -69,17 +68,16 @@ jobs:
                   PRE: ${{ steps.gv.outputs.preReleaseNumber }}
               run: |
                   set -euo pipefail
-                  # Marketplace has no pre-release SUFFIX (unlike PyPI) — versions are one
-                  # increasing X.Y.Z line + a --pre-release flag. So we use Microsoft's
-                  # odd/even-minor scheme: stable = even minor (GitVersion majorMinorPatch,
-                  # driven by next-version, e.g. 0.6.0); pre-release = the odd minor just
-                  # below it, with the commit counter as patch (0.5.<N>). That keeps every
-                  # pre-release strictly below the stable it leads to, so nothing collides.
+                  # Marketplace has no pre-release SUFFIX — versions are one increasing
+                  # X.Y.Z line + a --pre-release flag. Each stage lands on a higher SemVer
+                  # position (GitVersion.yml): rc bumps the MINOR (pre-release), release
+                  # bumps the MAJOR (stable). rc's patch is the commit counter so a cycle's
+                  # pre-releases increase; release publishes the clean majorMinorPatch.
                   if [ "${{ github.ref_name }}" = "release" ]; then
-                    V="$MMP"                          # clean even-minor X.Y.0, stable
+                    V="$MMP"                        # stable, e.g. 1.0.0 (Major bump)
                     PRERELEASE=false
                   else
-                    V="${MAJOR}.$((MINOR - 1)).${PRE}" # odd minor below stable, e.g. 0.5.<N>
+                    V="${MAJOR}.${MINOR}.${PRE}"    # pre-release, e.g. 0.10.<commit count>
                     PRERELEASE=true
                   fi
                   echo "version=$V" >> "$GITHUB_OUTPUT"

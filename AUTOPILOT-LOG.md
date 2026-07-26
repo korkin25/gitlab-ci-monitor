@@ -2,6 +2,22 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — GCM-25: simpler version scheme (user-directed)
+
+- **Replaced the odd/even scheme (GCM-23) with a simpler one** at the user's request: each promotion
+  bumps a higher SemVer position — `dev` = Patch (unpublished), `rc` = Minor → pre-release, `release`
+  = Major → stable. `release.yml` publishes plain `X.Y.Z` (rc → `major.minor.<preReleaseNumber>`,
+  release → `majorMinorPatch`); dropped `MINOR-1` and the reserved odd/even minors. `GitVersion.yml`:
+  `rc` `increment: Minor`, `release` `increment: Major`, `next-version: 0.10.0`. `CLAUDE.md`
+  versioning section rewritten.
+- **Why `next-version: 0.10.0`:** an interrupted `rc` push (before this change, under the old scheme)
+  had already published pre-release **`0.9.4`**, so the floor is `0.9.4`. `next-version: 0.10.0`
+  starts `rc` at `0.10.x` (a raised next-version suppresses rc's minor bump for this first cycle, so
+  dev/rc share minor 10 until the first stable tag; from the next cycle tags drive the lanes).
+- **Verified via local GitVersion dry-run (the mandatory gate):** `rc` → pre-release `0.10.5`
+  (`> 0.9.4`), `release` → stable `1.0.0` (`> 0.10.5`). Local `rc`/`release` were reset to `origin`;
+  nothing pushed during the dry-run. `GCM-24` (stage order) rides in this release.
+
 ## 2026-07-26 — GCM-24: stage tree ordered by execution, not API order
 
 - **Bug (reported against 0.8.0):** the stage tree showed stages reversed — `commit_job_changes`

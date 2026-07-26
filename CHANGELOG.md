@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **GCM-25 — simpler release version scheme (replaces GCM-23's odd/even).** Each promotion now
+  bumps a higher SemVer position: `dev` = Patch (unpublished dev builds), `rc` = Minor →
+  **pre-release**, `release` = Major → **stable**. `release.yml` publishes a plain `X.Y.Z` on each
+  channel (rc → `major.minor.<preReleaseNumber>`, release → `majorMinorPatch`) — no more `MINOR-1`
+  or reserved odd/even minors. Because rc lands on a new minor and release on a new major, every
+  publish is strictly greater than the last across both channels (the Marketplace's only rule).
+  `next-version` seeds the first cycle; a stable's tag drives increments thereafter. A local
+  GitVersion dry-run before any `rc`/`release` push is mandatory. (`GitVersion.yml`, `release.yml`,
+  `CLAUDE.md`.)
+
 ### Fixed
 
 - **GCM-24 — show pipeline stages in execution order, not reversed.** The stage tree listed stages

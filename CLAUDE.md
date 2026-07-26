@@ -119,40 +119,50 @@ Keep the docs in lockstep with the code, **in the same change** — never wait t
   until CI is green. After a release, Claude re-runs group-(b); any group-(c) tests →
   methodology handed to the user.
 
-## Versioning & releasing (auto-generated — never hardcode, no tags)
+## Versioning & releasing (auto-generated — never hardcode)
 
-**One source of truth: GitVersion** (`GitVersion.yml`). It computes the SemVer for the
-published extension (the `.vsix` and the marketplace version) from the branch graph — nothing
-is hand-written. Branch model: `feature/*` (`-alpha`) → `dev` (`-dev`) → `rc` (`-rc`) →
-`release` (clean `X.Y.Z`). **There is no `main` branch, and there are no git tags.**
+**One source of truth: GitVersion** (`GitVersion.yml`). It computes the version for the published
+extension (the `.vsix` / marketplace version) from the branch graph — nothing is hand-written.
 
-- **The one knob is `next-version` in `GitVersion.yml`.** It sets the target release number. To
-  cut a new minor/major, bump `next-version`; patches increment automatically on `release`.
-- **Never hand-write a version** — not in `package.json`, not in docs. `release.yml` injects the
-  GitVersion number into `package.json` at publish time
-  (`npm version <v> --no-git-tag-version --allow-same-version`); leave `package.json` `version`
-  as-is between releases. When you must state the version in docs, read it from CI's GitVersion
-  output or `docker run --rm -v "$PWD:/repo" gittools/gitversion:6.8.2 /repo /showvariable SemVer`.
-- **Uses the latest GitVersion 6.x** — the config must be 6.x-native (a 5.x-style config with
-  `next-version` fails to parse under 6.8+).
+**Scheme (GCM-25): each promotion bumps a higher SemVer position.** The stage a change is in maps
+to a version lane, and because each stage lands on a higher position, every publish is strictly
+greater than the last across BOTH channels — all the Marketplace requires (it keeps one increasing
+version line and rejects a `-rc.N` suffix):
 
-**Releasing is a merge, not a tag.** `release.yml` runs `on: push: branches: [rc, release]` — a
-merge into either branch IS a release:
+| branch | increment | channel | published (steady state) |
+|---|---|---|---|
+| `feature/*` | Inherit (`-alpha`) | — | not published |
+| `dev` | Patch | — (local test builds) | `X.0.1`, `X.0.2` |
+| `rc` | Minor | **pre-release** | `X.1.0`, `X.1.1` — `major.minor.<preReleaseNumber>`, `--pre-release` |
+| `release` | Major | **stable** | `(X+1).0.0` — `majorMinorPatch`, no flag |
 
-- merge to **`rc`** → a **pre-release** publish (`vsce publish --pre-release`, and
-  `ovsx publish --pre-release`). The VS Code Marketplace rejects a `-rc.N` SemVer suffix, so the
-  version is a distinct, increasing plain `X.Y.Z` = `<major>.<minor>.<preReleaseNumber>`
-  (e.g. `0.5.8`) carried by the `--pre-release` flag. (Future refinement: Microsoft's
-  odd-minor-for-pre-release / even-minor-for-stable guidance.)
-- merge to **`release`** → the **stable** publish (clean `X.Y.Z` from GitVersion's
-  `majorMinorPatch`; `vsce publish` / `ovsx publish`, no flag).
+So: patch-iterate on `dev`; merge to `rc` → bumps the minor and publishes a pre-release; keep
+merging to `rc` for more pre-releases; merge to `release` → bumps the major and publishes the
+stable. `release.yml` maps GitVersion's output to a plain `X.Y.Z` (rc → `major.minor.<commit
+count>`, release → `majorMinorPatch`).
 
-To cut a new number, bump `next-version`; then merge `dev` → `rc` → `release` (approval-gated).
-`ci.yml` never publishes the extension.
+- **The one knob is `next-version`.** It seeds the current cycle's floor; after a stable ships, its
+  `vX.Y.Z` tag becomes the floor and the branch increments drive everything. **A raised
+  `next-version` suppresses `rc`'s minor bump for that first cycle** (so dev/rc can share a minor
+  until the first stable tag exists — that's expected).
+- **Never hand-write a version** — not in `package.json`, not in docs. `release.yml` sets
+  `package.json` from GitVersion at publish (`npm version <v> --no-git-tag-version
+  --allow-same-version`). When you must state a version in docs, read it from GitVersion:
+  `docker run --rm -v "$PWD:/repo" gittools/gitversion:6.8.2 /repo /showvariable SemVer`.
+- **MANDATORY dry-run gate before any `rc`/`release` push.** Run GitVersion locally on both branches
+  and assert the pre-release and stable numbers are what you expect AND strictly above the highest
+  already-published version (the Marketplace rejects a lower/equal version — a wrong push burns a
+  number permanently). Use the docker command above with `/showvariable MajorMinorPatch` etc.
+- **Uses the latest GitVersion 6.x** — the config must be 6.x-native.
 
-Publishing to the marketplaces is **opt-in** — each publish step runs only when its token secret
-is set: `VSCE_PAT` (VS Code Marketplace) and `OVSX_PAT` (Open VSX). Without them the release job
-still builds and uploads the `.vsix` artifact and skips the marketplace publish.
+**Releasing is a merge.** `release.yml` runs `on: push: branches: [rc, release]` — a merge into
+either branch IS a release (rc = pre-release publish, release = stable publish + a `vX.Y.Z` GitHub
+Release/tag). To cut a new number, promote `dev` → `rc` → `release` (approval-gated). `ci.yml`
+never publishes.
+
+Publishing to the marketplaces is token-gated: each publish step runs only when its secret is set
+(`VSCE_PAT` / `OVSX_PAT`; both are configured). Without a secret the release job still builds and
+uploads the `.vsix` and skips that marketplace.
 
 ## Build, artifacts & CI (apply without being asked)
 
